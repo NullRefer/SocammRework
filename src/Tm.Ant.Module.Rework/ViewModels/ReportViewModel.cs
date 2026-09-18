@@ -6,7 +6,7 @@ public partial class ReportViewModel : ObservableObject
     [ObservableProperty]
     private int _selectTimeIndex;
     [ObservableProperty]
-    private string _selectDate=DateTime.Now.ToString();
+    private DateTime _selectDate=DateTime.Now.Date;
     [ObservableProperty]
     private bool _isBusy;
     [ObservableProperty]
@@ -27,21 +27,21 @@ public partial class ReportViewModel : ObservableObject
             DataList.Clear();
             IsBusy = true;
 
-            var time = GetTimeRange(DateTime.Parse(SelectDate));
             using var repo = _repositoryFactory.CreateRepository<FlowMainHis>();
-            var list = await repo.GetListAsync(t => t.CreateTime > time.Item1 && t.CreateTime < time.Item2);
-            if (!string.IsNullOrEmpty(productCode)&& list?.Any()==true)
+            var list = (await repo.GetListAsync(t => t.CreateTime > SelectDate)).AsEnumerable();
+
+            if (productCode.IsNotNullOrWhiteSpace())
             {
-                list=list.FindAll(x=>x.ProductCode== productCode);
+                list = list.Where(p => p.ProductCode.Contains(productCode));
             }
             if (list != null)
             {
-                foreach(var item in list)
+                foreach(var item in list.OrderByDescending(e => e.Id))
                 {
                     DataList.Add(new ReportVo() 
                     {
                         Id= item.Id,
-                        ProductCode = productCode,
+                        ProductCode = item.ProductCode,
                         UnScrewCaves=item.UnScrewCaves,
                         ResultJson=item.ResultJson,
                         Locations=item.Locations,
@@ -60,26 +60,15 @@ public partial class ReportViewModel : ObservableObject
             IsBusy = false;
         }
     }
-
-    private (DateTime, DateTime) GetTimeRange(DateTime dateTime)
-    {
-        var date = dateTime.Date;
-        if (SelectTimeIndex == 0)
-        {
-            return (date.AddHours(8), date.AddDays(1).AddHours(8));
-        }
-        else if (SelectTimeIndex == 1)
-        {
-            return (date.AddHours(8), date.AddHours(20));
-        }
-        else if (SelectTimeIndex == 2)
-        {
-            return (date.AddHours(20), date.AddDays(1).AddHours(8));
-        }
-        return (date.AddHours(8), date.AddDays(1).AddHours(8));
-    }
 }
-public class ReportVo: FlowMainHis
+public class ReportVo
 {
     public string FinalResult { get; set; }
+    public int Id { get; internal set; }
+    public string ProductCode { get; internal set; }
+    public string UnScrewCaves { get; internal set; }
+    public string ResultJson { get; internal set; }
+    public string Locations { get; internal set; }
+    public DateTime UpdateTime { get; internal set; }
+    public DateTime CreateTime { get; internal set; }
 }

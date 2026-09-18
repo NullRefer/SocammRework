@@ -18,12 +18,8 @@
         </Grid.RowDefinitions>
         <!--查询条件-->
         <WrapPanel Grid.Row="0" Margin="10">
+            <TextBlock Text="开始时间: " VerticalAlignment="Center" Margin="10"/>
             <DatePicker  Width="215"  Text="{Binding SelectDate,Mode=TwoWay}"/>
-            <ComboBox  Margin="5 0" SelectedIndex="{Binding SelectTimeIndex,Mode=TwoWay}">
-                <ComboBoxItem>08:00-08:00</ComboBoxItem>
-                <ComboBoxItem>08:00-20:00</ComboBoxItem>
-                <ComboBoxItem>20:00-08:00</ComboBoxItem>
-            </ComboBox>
             <TextBlock Text="ProductCode:" Margin="20 0 0 0" VerticalAlignment="Center"/>
             <TextBox x:Name="tbProductCode" VerticalAlignment="Center" MinWidth="215" Height="23" Margin="5 0 5 0"/>
             <Button Content="Query" Command="{Binding QueryData}" CommandParameter="{Binding ElementName=tbProductCode,Path=Text}" IsEnabled="{Binding IsBusy,Converter={StaticResource boolRe}}"/>
@@ -34,8 +30,7 @@
                 <DataGridTextColumn IsReadOnly="True" Width="80" CanUserResize="False" Binding="{Binding Id}" Header="Id"/>
                 <DataGridTextColumn Binding="{Binding ProductCode}" Header="ProductCode" Width="0.5*"/>
                 <DataGridTextColumn Binding="{Binding UnScrewCaves}" Header="Caves" Width="0.8*"/>
-                <DataGridTextColumn Binding="{Binding Locations}" Header="Locations" Width="*"/>
-                <DataGridTextColumn Binding="{Binding FinalResult}" Header="Result" Width="0.5*"/>
+                <DataGridTextColumn Binding="{Binding ResultJson}" Header="Result" Width="0.5*"/>
                 <DataGridTextColumn Binding="{Binding CreateTime}" Header="StartTime" Width="0.7*"/>
                 <DataGridTextColumn Binding="{Binding UpdateTime}" Header="EndTime" Width="0.7*"/>
             </DataGrid.Columns>

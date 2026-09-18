@@ -21,5 +21,5 @@ public class SfcConfigModel
     public string MachineCode { get; set; }
     public string RecordUrl { get; set; }
     public string ReworkUrl { get; set; }
-    public string Group { get; set; }
+    public string Group { get; set; } = "";
 }

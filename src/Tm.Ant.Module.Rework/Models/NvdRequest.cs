@@ -32,11 +32,6 @@ public class NvdReworkResponse: NvdSfcResponse
     public string Locations { get; set; }
     [JsonProperty("GROUP")]
     public string Group { get; set; }
-    /// <summary>
-    /// PCB板是否匹配
-    /// </summary>
-    [JsonIgnore]
-    public bool PcbNg { get; set; }
     public short[] DoCaves { get; set; } = new short[] {0,0,0,0,0,0,0,0 };
 }
 
@@ -46,5 +41,14 @@ public class NvdSfcResponse
     [JsonProperty("rc")]
     public int Rc { get; set; }
     [JsonProperty("Error Description")]
+    public string Result { get; set; }
+}
+
+public class PassResponse
+{
+    public bool IsSuccess => Rc == 0;
+    [JsonProperty("rc")]
+    public int Rc { get; set; }
+    [JsonProperty("Error_Description")]
     public string Result { get; set; }
 }

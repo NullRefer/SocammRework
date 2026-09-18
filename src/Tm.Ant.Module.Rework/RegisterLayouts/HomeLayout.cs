@@ -18,5 +18,6 @@ public class ReworkHomeLayout : HomeLayout
         {
             RegisterLeftRightLayout<PCBResultDisplay>("拆螺丝结果");
         }
+        RegisterLeftRightLayout<ManualPass>("手动过站");
     }
 }

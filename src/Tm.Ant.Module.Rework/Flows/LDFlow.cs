@@ -52,11 +52,6 @@ internal class LDFlow : FlowBase
             _logger.LogComm($"{productCode} SFC 反馈不需要拆，请联系生产确认，SFC 反馈信息: {resp?.Result}({resp?.Rc})");
             return (false, "", "");
         }
-        if (resp.PcbNg)
-        {
-            _logger.LogComm($"PCB板不匹配当前工站，无需拆螺丝!");
-            return (false, "", "");
-        }
 
         var strCaves = string.Join(',', resp.DoCaves.Select(x => x.ToString()).ToList());
         _logger.LogComm($"需要拆螺丝位置为{resp.Locations}，对应机台穴位为{strCaves}");

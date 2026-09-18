@@ -6,7 +6,7 @@ namespace Tm.Ant.Module.Rework.FlowServices;
 
 public interface INvdSfcService : ISingleton
 {
-    Task<NvdSfcResponse> StationRecordAsync(RecoredRequest recoredRequest);
+    Task<PassResponse> StationRecordAsync(RecoredRequest recoredRequest);
     Task<NvdReworkResponse> GetCavesAsync(string productCode);
 }
 internal class NvdSfcService : INvdSfcService
@@ -54,8 +54,53 @@ internal class NvdSfcService : INvdSfcService
                   Result="Invoke service fail!",
             };
         }
+
+        if (!config.Group.Split(',').Contains(resp.Group))
+        {
+            return new NvdReworkResponse
+            {
+                Rc = resp.Rc,
+                Result = $"{productCode} 非当前站点作业, SFC 反馈应在: {resp.Group}, 本线体仅作业: {config.Group}, 请联系生产确认来料",
+                Group = resp.Group
+            };
+        }
+
+        var locList = resp.Locations?.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(c => c.StartsWith("L"));
+
+        if (locList == null)
+        {
+            return resp;
+        }
+
+        var allLocations = resp.Locations?.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var loList = allLocations.Where(c => c.StartsWith("L")).ToList();
+        var joList = allLocations.Where(c => c.StartsWith("J")).ToList();
+
+        if (loList.Count == 0 || loList.Count != joList.Count)
+        {
+            return new NvdReworkResponse
+            {
+                Rc = resp.Rc,
+                Result = $"{productCode} 物料对应的 soc与lga 数量不匹配, 即 L,J 数量未对应, 请联系生产确认来料",
+                Group = resp.Group
+            };
+        }
+
+        var lNumbers = loList.Select(l => l.Substring(1)).OrderBy(n => n).ToList();
+        var jNumbers = joList.Select(j => j.Substring(1)).OrderBy(n => n).ToList();
+
+        if (!lNumbers.SequenceEqual(jNumbers))
+        {
+            return new NvdReworkResponse
+            {
+                Rc = resp.Rc,
+                Result = $"{productCode} 物料对应的 soc与lga 位置不匹配, 即 L,J 位置未对应, 请联系生产确认来料",
+                Group = resp.Group
+            };
+        }
+
         //mapping
-        var locList = resp.Locations?.Split(',',StringSplitOptions.RemoveEmptyEntries).Where(c => c.StartsWith("L"));
+      
         if (locList != null)
         {
             foreach (var l in locList)
@@ -67,28 +112,23 @@ internal class NvdSfcService : INvdSfcService
                 }
             }
         }
-        resp.PcbNg = resp.Group != config.Group;
-        if (resp.PcbNg)
-        {
-            resp.DoCaves= new short[] { 0, 0, 0, 0, 0, 0, 0, 0 };
-        }
         return resp;
     }
 
-    public async Task<NvdSfcResponse> StationRecordAsync(RecoredRequest recoredRequest)
+    public async Task<PassResponse> StationRecordAsync(RecoredRequest recoredRequest)
     {
         var (sfcEnabled, config) = await GetConfigAsync();
         if (!sfcEnabled)
         {
-            return new NvdSfcResponse();
+            return new PassResponse();
         }
         var url = config.RecordUrl;
         recoredRequest.Emp = config.Emp;
         recoredRequest.MachineCode = config.MachineCode;
-        var resp= await _httpService.PostAsync<NvdSfcResponse>(url, recoredRequest, LogCategory.SFC);
+        var resp= await _httpService.PostAsync<PassResponse>(url, recoredRequest, LogCategory.SFC);
         if (resp == null)
         {
-            return new NvdSfcResponse()
+            return new PassResponse()
             {
                 Rc = 9999,
                 Result = "网络异常"
