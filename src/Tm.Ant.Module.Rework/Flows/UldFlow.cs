@@ -47,13 +47,23 @@ internal class UldFlow : FlowBase
                 var hasNg = result.Values.Any(t => t == "NG");
                 if(!hasNg)
                 {
-                    await _nvdSfcService.StationRecordAsync(new RecoredRequest()
+                    var sfcResult = await _nvdSfcService.StationRecordAsync(new RecoredRequest()
                     {
                         Sn = barCode,
                         ErrorCode = "N/A",
                         Result = "PASS",
                     });
+                    if (sfcResult.IsSuccess)
+                    {
+                        _logger.LogInformation($"{barCode} SFC 过站成功: {sfcResult.ToJson()}");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"{barCode} SFC 过站失败: {sfcResult.ToJson()}");
+                    }
                 }
+
+                _logger.LogInformation($"{barCode} 未完成预定的拆除, 不过站, 请检查拆除机是否正常进行拆除, 当前拆除数据: {result.ToJson()} ");
 
                 _eventBus.Publish(new FlowEventPubSub()
                 {
