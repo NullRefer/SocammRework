@@ -48,37 +48,6 @@ public class FlowMain : EntityBase
     }
 }
 
-[Table("flow_history")]
-public class FlowMainHis : EntityBase
-{
-    [Column("productCode")]
-    public string ProductCode { get; set; }
-    /// <summary>
-    /// 需要拆除的穴位列表多个用英文逗号分隔，例如: 1,2,3
-    /// </summary>
-    [Column("unScrewCaves")]
-    public string UnScrewCaves { get; set; }
-    [Column("locations")]
-    public string Locations { get; set; }
-    [Column("resultJson")]
-    public string ResultJson { get; set; }
-
-    public string GetFinalResult()
-    {
-        if (string.IsNullOrEmpty(ResultJson)) return "";
-        var list=JsonHelper.DeserializeObject<List<ResultJsonItem>>(ResultJson);
-        var caves=UnScrewCaves.Split(',',StringSplitOptions.RemoveEmptyEntries);
-        if (list.Count == caves.Length) return "OK";
-        var result=string.Empty;
-        foreach(var c in caves)
-        {
-            if (list.Exists(x => x.Cave.ToString() == c)) continue;
-            result += $"cave({c}) NG;";
-        }
-        return result;
-    }
-}
-
 public class ResultJsonItem
 {
     public int Cave { get; set; }

@@ -10,7 +10,7 @@ public partial class ReportViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
     [ObservableProperty]
-    private ObservableCollection<ReportVo> _dataList = new();
+    private ObservableCollection<FlowMain> _dataList = new();
     public RelayCommand<string> QueryData { get; set; }
 
     private readonly IRepositoryFactory _repositoryFactory;
@@ -27,7 +27,7 @@ public partial class ReportViewModel : ObservableObject
             DataList.Clear();
             IsBusy = true;
 
-            using var repo = _repositoryFactory.CreateRepository<FlowMainHis>();
+            using var repo = _repositoryFactory.CreateRepository<FlowMain>();
             var list = (await repo.GetListAsync(t => t.CreateTime > SelectDate)).AsEnumerable();
 
             if (productCode.IsNotNullOrWhiteSpace())
@@ -38,17 +38,7 @@ public partial class ReportViewModel : ObservableObject
             {
                 foreach(var item in list.OrderByDescending(e => e.Id))
                 {
-                    DataList.Add(new ReportVo() 
-                    {
-                        Id= item.Id,
-                        ProductCode = item.ProductCode,
-                        UnScrewCaves=item.UnScrewCaves,
-                        ResultJson=item.ResultJson,
-                        Locations=item.Locations,
-                        UpdateTime=item.UpdateTime,
-                        CreateTime=item.CreateTime,
-                        FinalResult=item.GetFinalResult(),
-                    });
+                    DataList.Add(item);
                 }
             }
         }
@@ -60,15 +50,4 @@ public partial class ReportViewModel : ObservableObject
             IsBusy = false;
         }
     }
-}
-public class ReportVo
-{
-    public string FinalResult { get; set; }
-    public int Id { get; internal set; }
-    public string ProductCode { get; internal set; }
-    public string UnScrewCaves { get; internal set; }
-    public string ResultJson { get; internal set; }
-    public string Locations { get; internal set; }
-    public DateTime UpdateTime { get; internal set; }
-    public DateTime CreateTime { get; internal set; }
 }

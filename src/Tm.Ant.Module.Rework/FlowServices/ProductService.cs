@@ -56,19 +56,19 @@ internal class ProductService : IProductService
     public async Task<FlowMain> OfflineFlowAsync(string productCode)
     {
         using var repo = _repositoryFactory.CreateRepository<FlowMain>();
-        var flowMain = await repo.FetchLatestAsync(x => x.ProductCode == productCode&&x.IsDeleted==0);
-        if (flowMain != null)
+        var flowMain = await repo.FetchLatestAsync(x => x.ProductCode == productCode && x.IsDeleted == 0);
+        if (flowMain == null)
         {
-            using var repoHis = _repositoryFactory.CreateRepository<FlowMainHis>();
-            var rows = await repoHis.InsertAsync(new FlowMainHis()
-            {
-                ProductCode = flowMain.ProductCode,
-                UnScrewCaves = flowMain.UnScrewCaves,
-                ResultJson = flowMain.ResultJson
-            }) ;
-            if(rows> 0)
-              await repo.DeleteAsync(flowMain);
+            return null;
         }
+
+        flowMain.IsDeleted = 1;
+        var rows = await repo.UpdateAsync(flowMain);
+        if (rows <= 0)
+        {
+            throw new InvalidOperationException($"产品 {productCode} 下线失败，主表软删除未成功。");
+        }
+
         return flowMain;
     }
 }
