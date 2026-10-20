@@ -3,14 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-              xmlns:hc="https://handyorg.github.io/handycontrol"
-                xmlns:localCon="clr-namespace:Tm.Ant.Module.Rework.Converters"
+             xmlns:hc="https://handyorg.github.io/handycontrol"
+             xmlns:tm="http://tm.com"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
-    <UserControl.Resources>
-        <localCon:BoolVisibilityConverter x:Key="boolToVis"/>
-        <localCon:BoolReConverter x:Key="boolRe"/>
-    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
@@ -22,7 +18,11 @@
             <DatePicker  Width="215"  Text="{Binding SelectDate,Mode=TwoWay}"/>
             <TextBlock Text="ProductCode:" Margin="20 0 0 0" VerticalAlignment="Center"/>
             <TextBox x:Name="tbProductCode" VerticalAlignment="Center" MinWidth="215" Height="23" Margin="5 0 5 0"/>
-            <Button Content="Query" Command="{Binding QueryData}" CommandParameter="{Binding ElementName=tbProductCode,Path=Text}" IsEnabled="{Binding IsBusy,Converter={StaticResource boolRe}}"/>
+            <Button
+                Content="Query"
+                Command="{Binding QueryData}"
+                CommandParameter="{Binding ElementName=tbProductCode,Path=Text}"
+                IsEnabled="{Binding IsBusy,Converter={x:Static tm:CommonConverters.Boolean2BooleanReConverter}}" />
         </WrapPanel>
         <DataGrid Grid.Row="1" hc:DataGridAttach.CanUnselectAllWithBlankArea="True" HeadersVisibility="All" 
                   RowHeaderWidth="60" AutoGenerateColumns="False" ItemsSource="{Binding DataList}">
@@ -35,7 +35,12 @@
                 <DataGridTextColumn Binding="{Binding UpdateTime}" Header="EndTime" Width="0.7*"/>
             </DataGrid.Columns>
         </DataGrid>
-        <Border Grid.Row="1" Panel.ZIndex="2" Opacity="0.7" Background="LightGray" Visibility="{Binding IsBusy,Converter={StaticResource boolToVis}}">
+        <Border
+            Grid.Row="1"
+            Panel.ZIndex="2"
+            Opacity="0.7"
+            Background="LightGray"
+            Visibility="{Binding IsBusy,Converter={x:Static tm:CommonConverters.Boolean2VisibilityConverter}}">
             <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24"
                        Text="Loading..." Foreground="Red"/>
         </Border>
