@@ -1,4 +1,5 @@
 ﻿namespace Tm.Ant.Module.Rework;
+
 internal class FlowDictKeys
 {
     public const string Shield = "Shield";

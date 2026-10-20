@@ -1,39 +1,15 @@
-﻿using Tm.Ant.Module.Rework.FlowServices;
-using Tm.Ant.Module.Rework.Models;
-using Tm.Ant.Module.Rework.Provider;
+﻿using Tm.Ant.Module.Rework.Interfaces.Flows;
 
 namespace Tm.Ant.Module.Rework.Flows;
 
-internal class UnscrewFlow1 : ScrewFlowBase
+internal sealed class UnscrewFlow1(IFlowRuntimeService runtime, IScrewService service,
+    IDeviceFactory devices, ILogger<UnscrewFlow1> logger) : ScrewFlowBase(runtime, service, devices, logger)
 {
-    public UnscrewFlow1(
-        IConfiguration configuration,
-        ITmSocketFactory tmSocketFactory,
-        ITmLogger tmLogger,
-        IPlcFactory plcFactory,
-        IPlcAddProvider plcAddProvider,
-        IProductService productService,
-        IShieldProvider shieldProvider)
-        : base(configuration, tmSocketFactory, tmLogger, plcFactory, plcAddProvider, productService, shieldProvider)
-    {
-    }
-
-    public override string FlowName => $"{ FlowType.UNSCREW}1";
+    public override string FlowName => "UNSCREW1";
 }
 
-internal class UnscrewFlow2 : ScrewFlowBase
+internal sealed class UnscrewFlow2(IFlowRuntimeService runtime, IScrewService service,
+    IDeviceFactory devices, ILogger<UnscrewFlow2> logger) : ScrewFlowBase(runtime, service, devices, logger)
 {
-    public UnscrewFlow2(
-        IConfiguration configuration,
-        ITmSocketFactory tmSocketFactory,
-        ITmLogger tmLogger,
-        IPlcFactory plcFactory,
-        IPlcAddProvider plcAddProvider,
-        IProductService productService,
-        IShieldProvider shieldProvider)
-        : base(configuration, tmSocketFactory, tmLogger, plcFactory, plcAddProvider, productService, shieldProvider)
-    {
-    }
-
-    public override string FlowName => $"{ FlowType.UNSCREW}2";
+    public override string FlowName => "UNSCREW2";
 }

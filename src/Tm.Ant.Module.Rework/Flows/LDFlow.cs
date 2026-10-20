@@ -1,184 +1,25 @@
-﻿using Tm.Ant.Module.Rework.Extensions;
-using Tm.Ant.Module.Rework.FlowServices;
-using Tm.Ant.Module.Rework.Models;
-using Tm.Ant.Module.Rework.Provider;
+﻿using Tm.Ant.Module.Rework.Interfaces.Flows;
+using Tm.Ant.Module.Rework.Models.Pto;
 
 namespace Tm.Ant.Module.Rework.Flows;
 
-internal class LDFlow : IFlowBase
+/// <summary>
+/// Load扫码交互入口，清零由框架Runtime在结果反馈之后执行。
+/// </summary>
+internal sealed class LDFlow(IFlowRuntimeService runtime, ILoadService service) : IFlowBase
 {
-    private const int CodeLen = Consts.PRODUCTCODELEN;
-
-    private ITmSocketClient _scanClient;
-    private readonly IPlcFactory _plcFactory;
-    private readonly IConfiguration _configuration;
-    private readonly ITmSocketFactory _tmSocketFactory;
-    private readonly ITmLogger _logger;
-    private readonly IShieldProvider _shiledProvider;
-    private readonly ScanAddress _scanAddress;
-    private readonly INvdSfcService _nvdSfcService;
-    private readonly IProductService _productService;
-
-    public LDFlow(
-        IConfiguration configuration,
-        ITmSocketFactory tmSocketFactory,
-        ITmLogger tmLogger,
-        IPlcFactory plcFactory,
-        IPlcAddProvider plcAddProvider,
-        INvdSfcService nvdSfcService,
-        IProductService productService,
-        IShieldProvider shieldProvider)
-    {
-        _configuration = configuration;
-        _tmSocketFactory = tmSocketFactory;
-        _logger = tmLogger;
-        _plcFactory = plcFactory;
-        _shiledProvider = shieldProvider;
-        _nvdSfcService = nvdSfcService;
-        _productService = productService;
-        _scanAddress = plcAddProvider.GetAddress(FlowType.LD);
-    }
-
+    private readonly LoadAddress _address = new();
     public string FlowName => FlowType.LD.ToString();
 
-    private ScanAddress ScanDb => _scanAddress;
-    private IPlcService Plc => _plcFactory.GetPlc();
-
-    public Task RunAsync(CancellationToken cancellationToken)
+    public Task RunAsync(CancellationToken token)
     {
-        BuildScanner();
-        return TaskHelper.CreateLongRunningTask(HandlerScanFlowAsync, "Scan", 200, _logger, cancellationToken);
-    }
-
-    private async Task HandlerScanFlowAsync()
-    {
-        var trigger = await Plc.ReadInt16Async(ScanDb.ScanTrigger);
-        if (trigger.Data != (short)PlcResult.OK)
+        if (!runtime.CheckDevices(DeviceIds.MainPlc, DeviceIds.ProductScanner))
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        _logger.LogComm($"[PLC-{ScanDb.ScanTrigger}]扫码触发: {trigger.Data}");
-        await ClearPlcAsync(ScanDb.ScanTrigger);
-        _logger.LogComm($"[PLC-{ScanDb.ScanTrigger}]扫码触发清零");
-
-        //发送指令
-        await _scanClient?.SendAsync("+", System.Text.Encoding.ASCII);
-    }
-
-    private void BuildScanner()
-    {
-        var config = _configuration.GetReworkOption();
-        if (string.IsNullOrEmpty(config.Scanner.Ip))
-        {
-            return;
-        }
-
-        var ipPortConfig = new IpPortConfig()
-        {
-            Ip = config.Scanner.Ip,
-            Port = config.Scanner.Port,
-            Name = $"Scanner #1",
-        };
-        var scanClient = _tmSocketFactory.GetOrCreateClient(ipPortConfig);
-        scanClient.DataReceived += async p => await ProcessScanResultAsync(p);
-        _scanClient = scanClient;
-    }
-
-    private async Task ProcessScanResultAsync(string scanResult)
-    {
-        scanResult = scanResult.Replace("\r", "");
-        _logger.LogWorkplaceInfo(1, $"扫码枪扫码结果: {scanResult}");
-
-        var scanNg = scanResult == "Err" || scanResult == "ERR" || scanResult == "ERROR" || scanResult == "NG";
-
-        var shield = await _shiledProvider.GetShieldAsync();
-        if (!shield.Sfc && scanNg)
-        {
-            scanResult = $"Fake-{DateTime.Now.ToString1()}";
-            scanNg = scanResult == "Err" || scanResult == "ERR" || scanResult == "ERROR" || scanResult == "NG";
-        }
-
-        if (scanNg)
-        {
-            await ResponseToPlcAsync(ScanDb.ScanResult, PlcResult.NG);
-            var ngDesc = $"扫码失败: 2(未识别到有效条码)";
-            _logger.LogWorkplaceInfo(1, ngDesc);
-            return;
-        }
-
-        _logger.LogWorkplaceInfo(1, $"扫码成功，条码:{scanResult}");
-
-        //扫码成功处理
-        var isSuccess = await AfterScanSuccessAsync(scanResult);
-        if (isSuccess)
-        {
-            await WriteCodeAsync(ScanDb.ProductAdd, scanResult);
-            await ResponseToPlcAsync(ScanDb.ScanResult, PlcResult.OK);
-        }
-        else
-        {
-            await ClearPlcCodeAsync(ScanDb.ProductAdd, CodeLen);
-            await ResponseToPlcAsync(ScanDb.ScanResult, PlcResult.NG);
-        }
-    }
-
-    private Task ClearPlcAsync(string db) => ResponseToPlcAsync(db, PlcResult.Zero);
-    private async Task ResponseToPlcAsync(string db, PlcResult value)
-    {
-        var result = await Plc.WriteAsync(db, (short)value);
-        if (!result.IsSuccess)
-        {
-            _logger.LogError($"[{db}] Failed write : {value}  {result.Message}", LogCategory.Comm, LogDisplayMode.TOUI);
-        }
-    }
-
-    private async Task ClearPlcCodeAsync(string db, int length)
-    {
-        var value = new string('\0', length);
-        await WriteCodeAsync(db, value);
-    }
-
-    private async Task WriteCodeAsync(string db, string value)
-    {
-        var result = await Plc.WriteAsync(db, value);
-        if (!result.IsSuccess)
-        {
-            _logger.LogComm($"[PLC-{db}]  Failed write {value}  , {result.Message}");
-        }
-        else
-        {
-            _logger.LogComm($"[PLC-{db}] Sucess write {value} ");
-        }
-    }
-
-    private async Task<bool> AfterScanSuccessAsync(string barCode)
-    {
-        //sfc match
-        (bool isSuccess, string caves, string locations) = await MatchReworkCaveAsync(barCode);
-        return isSuccess ? await _productService.AddFlowAsync(barCode, caves, locations) : false;
-    }
-
-    //TODO
-    private async Task<(bool isSuccess, string caves, string locations)> MatchReworkCaveAsync(string productCode)
-    {
-        //query sfc && match rework caves.
-
-        var resp = await _nvdSfcService.GetCavesAsync(productCode);
-        if (resp == null)
-        {
-            _logger.LogComm($"调用重工接口失败:{resp?.Result}({resp?.Rc})");
-            return (false, "", "");
-        }
-
-        if (!resp.IsSuccess)
-        {
-            _logger.LogComm($"{productCode} SFC 反馈不需要拆，请联系生产确认，SFC 反馈信息: {resp?.Result}({resp?.Rc})");
-            return (false, "", "");
-        }
-
-        var strCaves = string.Join(',', resp.DoCaves.Select(x => x.ToString()).ToList());
-        _logger.LogComm($"需要拆螺丝位置为{resp.Locations}，对应机台穴位为{strCaves}");
-        return (true, strCaves, resp.Locations);
+        return runtime.CreatePollingTask(t => runtime.RunOnTriggerAsync(DeviceIds.MainPlc,
+            "上料扫码建档", _address.Trigger,
+            ct => service.ScanAsync(_address, DeviceIds.ProductScanner, ct), t), FlowName, token);
     }
 }

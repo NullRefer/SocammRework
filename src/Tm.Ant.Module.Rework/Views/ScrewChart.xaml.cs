@@ -1,13 +1,14 @@
-﻿using System.Windows.Controls; 
+﻿using System.Windows.Controls;
+
+using Tm.Ant.Module.Rework.ViewModels;
 
 namespace Tm.Ant.Module.Rework.Views;
-/// <summary>
-/// ScrewChart.xaml 的交互逻辑
-/// </summary>
+
 public partial class ScrewChart : UserControl
 {
-    public ScrewChart()
+    public ScrewChart(ScrewChartViewModel viewModel)
     {
         InitializeComponent();
+        DataContext = viewModel;
     }
 }

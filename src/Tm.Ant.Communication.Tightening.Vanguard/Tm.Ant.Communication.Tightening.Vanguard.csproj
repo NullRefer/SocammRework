@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Tm.Ant.Communication.Tightening.Abstractions" Version="3.2.0" />
+        <Reference Include="NModbus4">
+            <HintPath>../../lib/NModbus4.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+</Project>

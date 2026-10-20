@@ -22,11 +22,11 @@
         </Grid.RowDefinitions>
         <WrapPanel Grid.Row="0" Margin="0 0 0 10">
             <TextBlock Text="Date:" VerticalAlignment="Center"/>
-            <hc:DatePicker Text="{Binding SelectDate,Mode=TwoWay}"  MinWidth="115" Margin="2 0 20 0"/>
+            <hc:DatePicker SelectedDate="{Binding SelectDate,Mode=TwoWay}"  MinWidth="115" Margin="2 0 20 0"/>
 
             <TextBlock Text="ProductCode:" VerticalAlignment="Center"/>
             <TextBox x:Name="_productCode" MinWidth="315" Margin="5 0"/>
-            <Button Content="Query" Command="{Binding QueryCurveCmd}" CommandParameter="{Binding Text,ElementName=_productCode}"/>
+            <Button Content="Query" Command="{Binding QueryCurveCommand}" CommandParameter="{Binding Text,ElementName=_productCode}"/>
         </WrapPanel>
         <ItemsControl Grid.Row="1" ItemsSource="{Binding Source={StaticResource ChartView}}">
             <ItemsControl.ItemsPanel>

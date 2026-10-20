@@ -1,53 +1,102 @@
-﻿using Tm.Ant.Module.Rework.Entities;
+﻿using Tm.Ant.CommonViewWpf.Models;
+using Tm.Ant.Module.Rework.Entities;
+using Tm.Ant.Module.Rework.Interfaces.Common;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
-public partial class ReportViewModel : ObservableObject
-{
-    [ObservableProperty]
-    private int _selectTimeIndex;
-    [ObservableProperty]
-    private DateTime _selectDate=DateTime.Now.Date;
-    [ObservableProperty]
-    private bool _isBusy;
-    [ObservableProperty]
-    private ObservableCollection<FlowMain> _dataList = new();
-    public RelayCommand<string> QueryData { get; set; }
 
-    private readonly IRepositoryFactory _repositoryFactory;
-    public ReportViewModel(IRepositoryFactory repositoryFactory)
+public partial class ReportViewModel : ObservableObject, INavigationAware
+{
+    private readonly IProductQueryService _query;
+    private readonly IDialogService _dialogs;
+    private readonly ILogger _logger;
+    private CancellationTokenSource _session;
+    private Task _loading = Task.CompletedTask;
+
+    public ReportViewModel(IProductQueryService query, IDialogService dialogs, ILogger<ReportViewModel> logger)
     {
-        _repositoryFactory = repositoryFactory;
-        QueryData = new RelayCommand<string>(async p=>await OnQueryDataAsync(p));
+        _query = query;
+        _dialogs = dialogs;
+        _logger = logger;
+        Pagination.OnPageChanged = _ => LoadAsync();
     }
 
-    private async Task OnQueryDataAsync(string productCode)
+    [ObservableProperty] private DateTime _selectDate = DateTime.Today;
+    [ObservableProperty] private DateTime _endDate = DateTime.Today;
+    [ObservableProperty] private string _productCode = "";
+    [ObservableProperty] private bool _isBusy;
+    public PaginationVo<FlowMain> Pagination { get; } = new() { PageSize = 50 };
+
+    [RelayCommand]
+    private async Task QueryDataAsync()
     {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        Pagination.PageIndex = 1;
+        _loading = LoadAsync();
+        await _loading;
+    }
+
+    private async Task LoadAsync()
+    {
+        if (IsBusy || _session == null || _session.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (EndDate.Date < SelectDate.Date)
+        {
+            _dialogs.ShowWarning("结束日期不能早于开始日期。");
+            return;
+        }
+
+        var token = _session.Token;
+        IsBusy = true;
         try
         {
-            DataList.Clear();
-            IsBusy = true;
-
-            using var repo = _repositoryFactory.CreateRepository<FlowMain>();
-            var list = (await repo.GetListAsync(t => t.CreateTime > SelectDate)).AsEnumerable();
-
-            if (productCode.IsNotNullOrWhiteSpace())
+            var result = await _query.QueryAsync(SelectDate.Date, EndDate.Date.AddDays(1), ProductCode,
+                Pagination.PageIndex, Pagination.PageSize, token);
+            if (!token.IsCancellationRequested)
             {
-                list = list.Where(p => p.ProductCode.Contains(productCode));
-            }
-            if (list != null)
-            {
-                foreach(var item in list.OrderByDescending(e => e.Id))
-                {
-                    DataList.Add(item);
-                }
+                Pagination.UpdateFromPagedResultDto(result);
             }
         }
-        catch
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "产品报表查询失败");
+            _dialogs.ShowError($"产品报表查询失败：{ex.Message}");
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    public void OnNavigatedTo(object parameter)
+    {
+        _session?.Cancel();
+        _session?.Dispose();
+        _session = new CancellationTokenSource();
+        var previous = _loading;
+        _loading = ReloadAfterAsync(previous, _session.Token);
+    }
+
+    private async Task ReloadAfterAsync(Task previous, CancellationToken token)
+    {
+        await previous;
+        if (!token.IsCancellationRequested)
+        {
+            await LoadAsync();
+        }
+    }
+
+    public void OnNavigatedFrom()
+    {
+        _session?.Cancel();
     }
 }

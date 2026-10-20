@@ -1,13 +1,14 @@
-﻿using System.Windows.Controls; 
+﻿using System.Windows.Controls;
+
+using Tm.Ant.Module.Rework.ViewModels;
 
 namespace Tm.Ant.Module.Rework.Views;
-/// <summary>
-/// SfcConfig.xaml 的交互逻辑
-/// </summary>
+
 public partial class SfcConfig : UserControl
 {
-    public SfcConfig()
+    public SfcConfig(SfcConfigViewModel viewModel)
     {
         InitializeComponent();
+        DataContext = viewModel;
     }
 }

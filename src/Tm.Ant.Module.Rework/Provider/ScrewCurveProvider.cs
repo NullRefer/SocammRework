@@ -1,75 +1,103 @@
 ﻿using System.Collections.Concurrent;
 using System.IO;
 
-using Tm.Ant.Module.Rework.FlowServices;
-
 namespace Tm.Ant.Module.Rework.Provider;
+
+/// <summary>
+/// 本地曲线文件和最近曲线快照，不访问数据库。
+/// </summary>
 public interface IScrewCurveProvider : ISingleton
 {
-    Task SetCurveAsync(ScrewCurveEvent screwCurveEvent);
+    Task SetCurveAsync(ScrewCurveEvent item, CancellationToken token = default);
     Dictionary<int, ScrewCurveEvent> GetCurveFromMemory();
+    Task LoadLatestAsync(CancellationToken token);
+    Task<IReadOnlyList<ScrewCurveEvent>> QueryAsync(DateTime date, string code, CancellationToken token);
 }
 
-internal class ScrewCurveProvider : IScrewCurveProvider
+internal sealed class ScrewCurveProvider(IConfiguration configuration, ILogger<ScrewCurveProvider> logger)
+    : IScrewCurveProvider
 {
-    private readonly ConcurrentDictionary<int, ScrewCurveEvent> _dictionary = new();
-    private readonly IConfiguration _configuration;
-    public ScrewCurveProvider(IConfiguration configuration)
-    {
-        _configuration = configuration;
-    }
-    private async Task SaveAsync(ScrewCurveEvent @event)
-    {
-        var model = @event.ScrewCurve;
-        var productCode = @event.ProductCode;
-        var cave = @event.Cave;
+    private readonly ConcurrentDictionary<int, ScrewCurveEvent> _latest = new();
+    private string DataRoot => configuration["ReworkCurveDirectory"]
+        ?? Path.Combine(AppContext.BaseDirectory, "Data", "screw");
 
-        //按日期为文件夹来存储曲线数据
-        var dir = Path.Combine(_configuration.GetDataDirectory(), "screw", $"{DateTime.Now:yyyy-MM-dd}");
-        if (!Directory.Exists(dir))
-        {
-            Directory.CreateDirectory(dir);
-        }
-        //0-产品码；1-穴位；2-螺丝号；3-螺丝批id；4-时间
-        var fileName = Path.Combine(dir, $"{productCode}_{cave}_{model.ScrewNum}_{model.ScrewId}_{DateTime.Now:HHmmss}.txt");
-        await File.WriteAllTextAsync(fileName, JsonHelper.SerializeObject(model), System.Text.Encoding.UTF8);
-    }
-    public async Task SetCurveAsync(ScrewCurveEvent screwCurveEvent)
+    public async Task SetCurveAsync(ScrewCurveEvent item, CancellationToken token = default)
     {
-        var key = screwCurveEvent.ScrewCurve.ScrewId;
-        _dictionary[key] = screwCurveEvent;
-        await SaveAsync(screwCurveEvent);
+        var directory = Path.Combine(DataRoot, DateTime.Now.ToString("yyyy-MM-dd"));
+        Directory.CreateDirectory(directory);
+        var code = string.Concat(item.ProductCode.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        var name = $"{code}_{item.Cave}_{item.ScrewCurve.ScrewNum}_{item.ScrewCurve.ScrewId}_{DateTime.Now:HHmmssfffffff}.txt";
+        await File.WriteAllTextAsync(Path.Combine(directory, name), JsonConvert.SerializeObject(item), token);
+        _latest[item.ScrewCurve.ScrewId] = item;
     }
 
     public Dictionary<int, ScrewCurveEvent> GetCurveFromMemory()
     {
-        if (_dictionary.Count == 0)
-        {
-            InitNewestFile();
-        }
-        return _dictionary.ToDictionary(k => k.Key, k => k.Value);
+        return _latest.ToDictionary();
     }
 
-    private void InitNewestFile()
+    public async Task LoadLatestAsync(CancellationToken token)
     {
-        var dir = Path.Combine(_configuration.GetDataDirectory(), "screw");
-        if (!Directory.Exists(dir))
+        if (!Directory.Exists(DataRoot))
         {
             return;
         }
-        try
+
+        var directory = Directory.EnumerateDirectories(DataRoot).OrderDescending().FirstOrDefault();
+        if (directory == null)
         {
-            var directory = new DirectoryInfo(dir);
-            var subDirectorys = directory.GetDirectories();
-            var firstDic = subDirectorys.OrderByDescending(d => d.LastWriteTime).First();
-            if (firstDic == null) return;
-            var file = firstDic.GetFiles()?.OrderByDescending(t => t.LastWriteTime).First();
-            if (file == null) return;
-            var json = System.IO.File.ReadAllText(file.FullName);
-            var e = JsonHelper.DeserializeObject<ScrewCurveEvent>(json);
-            _dictionary[e.ScrewCurve.ScrewId] = e;
+            return;
         }
-        catch { }
+
+        foreach (var file in Directory.EnumerateFiles(directory, "*.txt").OrderByDescending(File.GetLastWriteTimeUtc))
+        {
+            token.ThrowIfCancellationRequested();
+            if (_latest.Count >= 2)
+            {
+                break;
+            }
+
+            try
+            {
+                var item = JsonConvert.DeserializeObject<ScrewCurveEvent>(await File.ReadAllTextAsync(file, token));
+                if (item?.ScrewCurve != null)
+                {
+                    _latest.TryAdd(item.ScrewCurve.ScrewId, item);
+                }
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "恢复最近曲线时跳过无效文件({File})", file);
+            }
+        }
+    }
+
+    public async Task<IReadOnlyList<ScrewCurveEvent>> QueryAsync(DateTime date, string code, CancellationToken token)
+    {
+        var directory = Path.Combine(DataRoot, date.ToString("yyyy-MM-dd"));
+        var items = new List<ScrewCurveEvent>();
+        if (!Directory.Exists(directory))
+        {
+            return items;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(directory, "*.txt").Order())
+        {
+            token.ThrowIfCancellationRequested();
+            try
+            {
+                var item = JsonConvert.DeserializeObject<ScrewCurveEvent>(await File.ReadAllTextAsync(file, token));
+                if (item != null && item.ProductCode == code)
+                {
+                    items.Add(item);
+                }
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "曲线文件({File})无法解析，跳过此文件", file);
+            }
+        }
+
+        return items;
     }
 }
-

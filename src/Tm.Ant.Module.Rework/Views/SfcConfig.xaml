@@ -44,13 +44,13 @@
         <WrapPanel Grid.Row="1" Margin="0 240 0 0">
             <TextBlock Text="ProductCode:" VerticalAlignment="Center"/>
             <TextBox Text="{Binding ProductCode}"  MinWidth="215" Margin="10"/>
-            <Button Command="{Binding TestSfcCmd}" CommandParameter="Rework" Content="Test Rework" Margin="5"/>
-            <Button  Command="{Binding TestSfcCmd}" CommandParameter="Record"  Content="Test Record"/>
+            <Button Command="{Binding TestSfcCommand}" CommandParameter="Rework" Content="Test Rework" Margin="5"/>
+            <Button  Command="{Binding TestSfcCommand}" CommandParameter="Record"  Content="Test Record"/>
         </WrapPanel>
 
         <WrapPanel Grid.Row="2"  HorizontalAlignment="Center" VerticalAlignment="Bottom">
-            <Button Content="Reset" Command="{Binding ExecuteCmd}" CommandParameter="reset"/>
-            <Button Content="Save" Margin="10 0 0 0" IsEnabled="{Binding IsEnabled}" Command="{Binding ExecuteCmd}" CommandParameter="save"/>
+            <Button Content="Reset" Command="{Binding ExecuteCommand}" CommandParameter="reset"/>
+            <Button Content="Save" Margin="10 0 0 0" IsEnabled="{Binding IsEnabled}" Command="{Binding ExecuteCommand}" CommandParameter="save"/>
         </WrapPanel>
     </Grid>
 </UserControl>

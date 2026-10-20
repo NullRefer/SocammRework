@@ -1,2 +1,0 @@
-﻿Log_WritePlcUnknownType={0} 包含无效的数据理类型: {1}
-Log_WritePlcFailed=写入失败: {0}

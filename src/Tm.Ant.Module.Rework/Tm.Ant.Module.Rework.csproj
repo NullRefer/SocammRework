@@ -1,31 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Tm.Ant.CommonViewWpf" Version="2.2.0" />
-    <PackageReference Include="Tm.Ant.Tool.SourceGenerators" Version="1.1.3" />
+    <PackageReference Include="Tm.Ant.CommonViewWpf" Version="3.2.0" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../Tm.Ant.Communication.Tightening.Vanguard/Tm.Ant.Communication.Tightening.Vanguard.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <AdditionalFiles Include="Lang*.txt" />
-  </ItemGroup>
+
 
   <ItemGroup>
     <None Remove="Images\PCB.png" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="NModbus4">
-      <HintPath>..\..\lib\NModbus4.dll</HintPath>
-    </Reference>
-  </ItemGroup>
+
 
   <ItemGroup>
     <Resource Include="Images\PCB.png" />

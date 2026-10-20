@@ -1,64 +1,107 @@
-﻿using System.Windows;
-
-using Tm.Ant.Module.Rework.Extensions;
-using Tm.Ant.Module.Rework.FlowServices;
-using Tm.Ant.Module.Rework.Models;
+﻿using Tm.Ant.Module.Rework.Interfaces.Common;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
-internal partial class SfcConfigViewModel : ObservableObject
+
+public partial class SfcConfigViewModel : ObservableObject, INavigationAware
 {
-    [ObservableProperty]
-    private bool _isEnabled;
-    [ObservableProperty]
-    private SfcConfigModel _sfc;
-    [ObservableProperty]
-    private string _productCode;
+    private readonly IConfigService _configs;
+    private readonly INvdSfcService _sfcService;
+    private readonly IDialogService _dialogs;
+    private readonly ILogger _logger;
+    private Task _loading = Task.CompletedTask;
+    private CancellationTokenSource _session;
 
-    public RelayCommand<string> ExecuteCmd { get; set; }
-    public RelayCommand<string> TestSfcCmd { get; set; }
-
-    private readonly IConfiguration _configuration;
-    private readonly INvdSfcService _nvdSfcService;
-    public SfcConfigViewModel(IConfiguration configuration,INvdSfcService nvdSfcService)
+    public SfcConfigViewModel(IConfigService configs, INvdSfcService sfcService, IDialogService dialogs,
+        ILogger<SfcConfigViewModel> logger)
     {
-        _configuration= configuration;
-        _nvdSfcService= nvdSfcService;
-        ExecuteCmd = new RelayCommand<string>(OnExecuteCmd);
-        TestSfcCmd = new RelayCommand<string>(OnTestSfcCmd);
-        var config = _configuration.GetReworkOption();
-        Sfc = config.Sfc;
+        _configs = configs;
+        _sfcService = sfcService;
+        _dialogs = dialogs;
+        _logger = logger;
     }
 
-    private void OnExecuteCmd(string flag)
+    [ObservableProperty] private bool _isEnabled = true;
+    [ObservableProperty] private SfcConfigModel _sfc = new();
+    [ObservableProperty] private string _productCode = "";
+    [ObservableProperty] private string _message = "";
+
+    [RelayCommand]
+    private async Task ExecuteAsync(string action)
     {
-        if (flag == "reset")
+        try
         {
-            IsEnabled = true;
-        }
-        else if (flag == "save")
-        {
-            _configuration.SaveReworkOption(x =>
+            var token = _session?.Token ?? CancellationToken.None;
+            if (action == "reset")
             {
-                x.Sfc = Sfc;
-            });
-            IsEnabled= false;
+                var config = await _configs.GetAsync<SfcConfigModel>(token);
+                if (!token.IsCancellationRequested)
+                {
+                    Sfc = JsonConvert.DeserializeObject<SfcConfigModel>(JsonConvert.SerializeObject(config));
+                }
+                return;
+            }
+
+            Sfc = await _configs.SaveAsync(Sfc, token);
+            _dialogs.ShowSuccess("SFC配置保存完成。");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SFC配置读取/保存失败");
+            _dialogs.ShowError($"SFC配置操作失败：{ex.Message}");
         }
     }
-    private async void OnTestSfcCmd(string flag)
+
+    [RelayCommand]
+    private async Task TestSfcAsync(string action)
     {
-        if (flag == "Rework")
+        try
         {
-            var resp= await _nvdSfcService.GetCavesAsync(ProductCode);
-            MessageBox.Show(JsonHelper.SerializeObject(resp));
-        }
-        else if (flag == "Record")
-        {
-           var resp= await _nvdSfcService.StationRecordAsync(new RecoredRequest() 
+            if (string.IsNullOrWhiteSpace(ProductCode))
             {
-                  Sn=ProductCode,
-                  Result="PASS",
-            });
-            MessageBox.Show(JsonHelper.SerializeObject(resp));
+                _dialogs.ShowWarning("请输入产品码。");
+                return;
+            }
+
+            if (action == "Record" && !await _dialogs.ShowConfirmAsync($"确认向SFC上传产品({ProductCode})的PASS过站？"))
+            {
+                return;
+            }
+
+            var token = _session?.Token ?? CancellationToken.None;
+            object result = action == "Rework"
+                ? await _sfcService.GetCavesAsync(ProductCode.Trim(), token)
+                : await _sfcService.StationRecordAsync(new RecoredRequest
+                {
+                    Sn = ProductCode.Trim(),
+                    Result = "PASS",
+                    ErrorCode = "N/A"
+                }, token);
+            Message = JsonConvert.SerializeObject(result, Formatting.Indented);
+            _dialogs.ShowInfo(Message);
         }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SFC接口测试失败");
+            _dialogs.ShowError($"SFC接口测试失败：{ex.Message}");
+        }
+    }
+
+    public void OnNavigatedTo(object parameter)
+    {
+        _session?.Cancel();
+        _session?.Dispose();
+        _session = new CancellationTokenSource();
+        _loading = ExecuteAsync("reset");
+    }
+
+    public void OnNavigatedFrom()
+    {
+        _session?.Cancel();
     }
 }

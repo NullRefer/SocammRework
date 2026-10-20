@@ -1,13 +1,14 @@
-﻿using System.Windows.Controls; 
+﻿using System.Windows.Controls;
+
+using Tm.Ant.Module.Rework.ViewModels;
 
 namespace Tm.Ant.Module.Rework.Views;
-/// <summary>
-/// CommConfig.xaml 的交互逻辑
-/// </summary>
+
 public partial class ManualPass : UserControl
 {
-    public ManualPass()
+    public ManualPass(ManualPassViewModel viewModel)
     {
         InitializeComponent();
+        DataContext = viewModel;
     }
 }

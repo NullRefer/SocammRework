@@ -1,55 +1,69 @@
 ﻿namespace Tm.Ant.Module.Rework.Entities;
+
+/// <summary>
+/// 一次上料创建的生产记录，结果和下线记录均保留在主表。
+/// </summary>
 [Table("flow")]
-public class FlowMain : EntityBase
+public sealed class FlowMain : EntityBase
 {
     [Column("productCode")]
-    public string ProductCode { get; set; }
+    public string ProductCode { get; set; } = "";
+
     /// <summary>
-    /// 需要拆除的穴位列表多个用英文逗号分隔，例如: 1,2,3
+    /// 按穴位1至8排列的0/1标记，例如1,0,1,0,0,0,0,0。
     /// </summary>
     [Column("unScrewCaves")]
-    public string UnScrewCaves { get; set; }
-    [Column("locations")]
-    public string Locations { get; set; }
-    /// <summary>
-    /// 拆螺丝的结果json
-    /// </summary>
-    [Column("resultJson")]
-    public string ResultJson { get; set; } 
+    public string UnScrewCaves { get; set; } = "";
 
-    public Dictionary<int,string> GetFinalResult()
+    [Column("locations")]
+    public string Locations { get; set; } = "";
+
+    [Column("resultJson")]
+    public string ResultJson { get; set; } = "[]";
+
+    public short[] GetRequiredCaves()
     {
-        var unscrewCaveList = new List<int>();
-        var oringCaves = UnScrewCaves.Split(',');
-        for (int i = 0; i < oringCaves.Length; i++)
+        var parts = (UnScrewCaves ?? "").Split(',');
+        if (parts.Length != 8 || parts.Any(value => value is not ("0" or "1")))
         {
-            if (oringCaves[i] == "1")
-            {
-                unscrewCaveList.Add(i + 1);
-            }
+            throw new FormatException($"产品({ProductCode})需拆标记无效：{UnScrewCaves}，要求8个0/1。");
         }
 
-        var unscrewResults = JsonHelper.DeserializeObject<List<ResultJsonItem>>(ResultJson);
+        return parts.Select(short.Parse).ToArray();
+    }
+
+    public List<ResultJsonItem> GetResults()
+    {
+        return string.IsNullOrWhiteSpace(ResultJson)
+            ? new List<ResultJsonItem>()
+            : JsonConvert.DeserializeObject<List<ResultJsonItem>>(ResultJson) ?? new List<ResultJsonItem>();
+    }
+
+    public Dictionary<int, string> GetFinalResult()
+    {
+        var required = GetRequiredCaves();
+        var received = GetResults();
         var results = new Dictionary<int, string>();
-        foreach (var unscrewCave in unscrewCaveList)
+        for (var index = 0; index < required.Length; index++)
         {
-            var unscrewResult = unscrewResults.Find(r => r.Cave == unscrewCave);
-            if (unscrewResult == null || unscrewResult.Result != "OK")
+            if (required[index] != 1)
             {
-                results.Add(unscrewCave, "NG");
+                continue;
             }
-            else
-            {
-                results.Add(unscrewCave, "OK");
-            }
+
+            var result = received.FirstOrDefault(item => item.Cave == index + 1);
+            results[index + 1] = result?.Result == "OK" ? "OK" : "NG";
         }
 
         return results;
     }
 }
 
-public class ResultJsonItem
+/// <summary>
+/// PLC上传的单个穴位最终拆除结果，不含螺丝批回调数据。
+/// </summary>
+public sealed class ResultJsonItem
 {
     public int Cave { get; set; }
-    public string Result { get; set; }
+    public string Result { get; set; } = "";
 }

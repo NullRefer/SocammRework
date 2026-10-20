@@ -1,189 +1,55 @@
-﻿using Tm.Ant.Module.Rework.Extensions;
-using Tm.Ant.Module.Rework.FlowServices;
-using Tm.Ant.Module.Rework.Models;
-using Tm.Ant.Module.Rework.Provider;
+﻿using Tm.Ant.Communication.Tightening.Abstractions.Interfaces;
+using Tm.Ant.Communication.Tightening.Abstractions.Models;
+using Tm.Ant.Module.Rework.Interfaces.Flows;
+using Tm.Ant.Module.Rework.Models.Pto;
 
 namespace Tm.Ant.Module.Rework.Flows;
 
-internal abstract class ScrewFlowBase : IFlowBase
+/// <summary>
+/// 两台同协议拆螺丝机共用的设备订阅与轮询入口，不管理设备连接。
+/// </summary>
+internal abstract class ScrewFlowBase(
+    IFlowRuntimeService runtime, IScrewService service, IDeviceFactory devices, ILogger logger) : IFlowBase
 {
-    private const int CodeLen = Consts.PRODUCTCODELEN;
-
-    private ITmSocketClient _scanClient;
-    private readonly IPlcFactory _plcFactory;
-    private readonly IConfiguration _configuration;
-    private readonly ITmSocketFactory _tmSocketFactory;
-    private readonly ITmLogger _logger;
-    private readonly IShieldProvider _shiledProvider;
-    private readonly UnscrewAddress _unscrewAddress;
-    private readonly IProductService _productService;
-
-    protected ScrewFlowBase(
-        IConfiguration configuration,
-        ITmSocketFactory tmSocketFactory,
-        ITmLogger tmLogger,
-        IPlcFactory plcFactory,
-        IPlcAddProvider plcAddProvider,
-        IProductService productService,
-        IShieldProvider shieldProvider)
-    {
-        _configuration = configuration;
-        _tmSocketFactory = tmSocketFactory;
-        _logger = tmLogger;
-        _plcFactory = plcFactory;
-        _shiledProvider = shieldProvider;
-        _productService = productService;
-        _unscrewAddress = plcAddProvider.GetAddress(FlowType.UNSCREW) as UnscrewAddress;
-    }
-
+    private readonly ScrewAddress _address = new();
     public abstract string FlowName { get; }
 
-    private ScanAddress ScanDb => _unscrewAddress;
-    private IPlcService Plc => _plcFactory.GetPlc();
-
-    public Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(CancellationToken token)
     {
-        BuildScanner();
-        return TaskHelper.CreateLongRunningTask(HandlerScanFlowAsync, "Scan", 200, _logger, cancellationToken);
-    }
-
-    private async Task HandlerScanFlowAsync()
-    {
-        var trigger = await Plc.ReadInt16Async(ScanDb.ScanTrigger);
-        if (trigger.Data != (short)PlcResult.OK)
+        if (!runtime.CheckDevices(DeviceIds.MainPlc, DeviceIds.ProductScanner,
+            DeviceIds.Tightening1, DeviceIds.Tightening2))
         {
             return;
         }
 
-        _logger.LogComm($"[PLC-{ScanDb.ScanTrigger}]扫码触发: {trigger.Data}");
-        await ClearPlcAsync(ScanDb.ScanTrigger);
-        _logger.LogComm($"[PLC-{ScanDb.ScanTrigger}]扫码触发清零");
-
-        //发送指令
-        await _scanClient?.SendAsync("+", System.Text.Encoding.ASCII);
-    }
-
-    private void BuildScanner()
-    {
-        var config = _configuration.GetReworkOption();
-        if (string.IsNullOrEmpty(config.Scanner.Ip))
-        {
-            return;
-        }
-
-        var ipPortConfig = new IpPortConfig()
-        {
-            Ip = config.Scanner.Ip,
-            Port = config.Scanner.Port,
-            Name = $"Scanner #1",
-        };
-        var scanClient = _tmSocketFactory.GetOrCreateClient(ipPortConfig);
-        scanClient.DataReceived += async p => await ProcessScanResultAsync(p);
-        _scanClient = scanClient;
-    }
-
-    private async Task ProcessScanResultAsync(string scanResult)
-    {
-        scanResult = scanResult.Replace("\r", "");
-        _logger.LogWorkplaceInfo(1, $"扫码枪扫码结果: {scanResult}");
-
-        var scanNg = scanResult == "Err" || scanResult == "ERR" || scanResult == "ERROR" || scanResult == "NG";
-
-        var shield = await _shiledProvider.GetShieldAsync();
-        if (!shield.Sfc && scanNg)
-        {
-            scanResult = $"Fake-{DateTime.Now.ToString1()}";
-            scanNg = scanResult == "Err" || scanResult == "ERR" || scanResult == "ERROR" || scanResult == "NG";
-        }
-
-        if (scanNg)
-        {
-            await ResponseToPlcAsync(ScanDb.ScanResult, PlcResult.NG);
-            var ngDesc = $"扫码失败: 2(未识别到有效条码)";
-            _logger.LogWorkplaceInfo(1, ngDesc);
-            return;
-        }
-
-        _logger.LogWorkplaceInfo(1, $"扫码成功，条码:{scanResult}");
-
-        //扫码成功处理
-        var isSuccess = await AfterScanSuccessAsync(scanResult);
-        if (isSuccess)
-        {
-            await WriteCodeAsync(ScanDb.ProductAdd, scanResult);
-            await ResponseToPlcAsync(ScanDb.ScanResult, PlcResult.OK);
-        }
-        else
-        {
-            await ClearPlcCodeAsync(ScanDb.ProductAdd, CodeLen);
-            await ResponseToPlcAsync(ScanDb.ScanResult, PlcResult.NG);
-        }
-    }
-
-    private Task ClearPlcAsync(string db) => ResponseToPlcAsync(db, PlcResult.Zero);
-    private async Task ResponseToPlcAsync(string db, PlcResult value)
-    {
-        var result = await Plc.WriteAsync(db, (short)value);
-        if (!result.IsSuccess)
-        {
-            _logger.LogError($"[{db}] Failed write : {value}  {result.Message}", LogCategory.Comm, LogDisplayMode.TOUI);
-        }
-    }
-
-    private async Task ClearPlcCodeAsync(string db, int length)
-    {
-        var value = new string('\0', length);
-        await WriteCodeAsync(db, value);
-    }
-
-    private async Task WriteCodeAsync(string db, string value)
-    {
-        var result = await Plc.WriteAsync(db, value);
-        if (!result.IsSuccess)
-        {
-            _logger.LogComm($"[PLC-{db}]  Failed write {value}  , {result.Message}");
-        }
-        else
-        {
-            _logger.LogComm($"[PLC-{db}] Sucess write {value} ");
-        }
-    }
-
-    private async Task<bool> AfterScanSuccessAsync(string barCode)
-    {
+        var first = devices.GetDeviceService<ITighteningDevice>(DeviceIds.Tightening1);
+        var second = devices.GetDeviceService<ITighteningDevice>(DeviceIds.Tightening2);
+        Func<TighteningCurve, Task> firstCurve = curve => service.SaveCurveAsync(
+            [_address.Curve1, _address.Curve2], 1, curve, token);
+        Func<TighteningCurve, Task> secondCurve = curve => service.SaveCurveAsync(
+            [_address.Curve1, _address.Curve2], 2, curve, token);
+        first.TighteningCurveReceivedAsync += firstCurve;
+        second.TighteningCurveReceivedAsync += secondCurve;
         try
         {
-            var flowMain = await _productService.GetFlowAsync(barCode);
-
-            if (flowMain != null)
-            {
-                var caves = StringToshorts(flowMain.UnScrewCaves);
-
-                //notify PLC work...
-                await Plc.WriteAsync(_unscrewAddress.UnscrewFlag, (short)1);
-                _logger.LogComm($"[Write PLC-{_unscrewAddress.UnscrewFlag}] value: 1");
-
-                await Plc.WriteAsync(_unscrewAddress.UnscrewLocationDb, caves);
-                _logger.LogComm($"[Write PLC-{_unscrewAddress.UnscrewLocationDb}] {caves}");
-            }
+            await Task.WhenAll(
+                runtime.CreatePollingTask(t => runtime.RunOnTriggerAsync(DeviceIds.MainPlc,
+                    "拆螺丝扫码下发", _address.Scan.Trigger,
+                    ct => service.ScanAsync(_address.Scan, DeviceIds.ProductScanner, ct), t), "拆螺丝扫码", token),
+                runtime.CreatePollingTask(async t =>
+                {
+                    // Runtime的RunOnTrigger在失败后也清零；本交互仅允许保存成功才清零。
+                    var result = await service.SaveResultAsync(_address.Result, t);
+                    if (!result.IsSuccess)
+                    {
+                        logger.LogWarningToUI("穴位结果保存失败：{Reason}", LogCategory.ALARM, result.Message);
+                    }
+                }, "穴位最终结果保存", token));
         }
-        catch (Exception ex)
+        finally
         {
-            _logger.LogError(ex.ToString());
+            first.TighteningCurveReceivedAsync -= firstCurve;
+            second.TighteningCurveReceivedAsync -= secondCurve;
         }
-
-        return true;
-    }
-
-    private short[] StringToshorts(string strCaves)
-    {
-        var values = new short[8];
-        var arr = strCaves.Split(',');
-        for (int i = 0; i < arr.Length; i++)
-        {
-            values[i] = short.Parse(arr[i]);
-        }
-
-        return values;
     }
 }

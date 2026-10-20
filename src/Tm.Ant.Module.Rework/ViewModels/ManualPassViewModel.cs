@@ -1,4 +1,4 @@
-﻿using Tm.Ant.Module.Rework.FlowServices;
+﻿using Tm.Ant.Module.Rework.Interfaces.Common;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
 
@@ -8,7 +8,8 @@ public partial class ManualPassViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly ILogger<ManualPassViewModel> _logger;
 
-    public ManualPassViewModel(INvdSfcService sfcService, IDialogService dialogService, ILogger<ManualPassViewModel> logger)
+    public ManualPassViewModel(INvdSfcService sfcService, IDialogService dialogService,
+        ILogger<ManualPassViewModel> logger)
     {
         _sfcService = sfcService;
         _dialogService = dialogService;
@@ -46,7 +47,13 @@ public partial class ManualPassViewModel : ObservableObject
             });
             Message = result.ToJson();
 
-            _dialogService.ShowInfo($"手动补 {ProductCode} 结果: {Message}");
+            if (!result.IsSuccess)
+            {
+                _dialogService.ShowError($"手动过站失败：{result.Result}");
+                return;
+            }
+
+            _dialogService.ShowSuccess($"手动补 {ProductCode} 结果: {Message}");
             _logger.LogInformation($"手动操作补 {ProductCode} 节点, 补节点结果: {Message}");
         }
         catch (Exception ex)

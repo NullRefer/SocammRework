@@ -1,48 +1,33 @@
-﻿<UserControl x:Class="Tm.Ant.Module.Rework.Views.Report"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:hc="https://handyorg.github.io/handycontrol"
-             xmlns:tm="http://tm.com"
-             mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-        <!--查询条件-->
-        <WrapPanel Grid.Row="0" Margin="10">
-            <TextBlock Text="开始时间: " VerticalAlignment="Center" Margin="10"/>
-            <DatePicker  Width="215"  Text="{Binding SelectDate,Mode=TwoWay}"/>
-            <TextBlock Text="ProductCode:" Margin="20 0 0 0" VerticalAlignment="Center"/>
-            <TextBox x:Name="tbProductCode" VerticalAlignment="Center" MinWidth="215" Height="23" Margin="5 0 5 0"/>
+﻿<UserControl
+    x:Class="Tm.Ant.Module.Rework.Views.Report"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tm="http://tm.com">
+    <DockPanel Margin="10">
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock Text="开始日期" VerticalAlignment="Center" />
+            <DatePicker SelectedDate="{Binding SelectDate}" Margin="5" />
+            <TextBlock Text="结束日期" VerticalAlignment="Center" />
+            <DatePicker SelectedDate="{Binding EndDate}" Margin="5" />
+            <TextBlock Text="产品码" VerticalAlignment="Center" />
+            <TextBox Text="{Binding ProductCode}" MinWidth="200" Margin="5" />
             <Button
-                Content="Query"
-                Command="{Binding QueryData}"
-                CommandParameter="{Binding ElementName=tbProductCode,Path=Text}"
-                IsEnabled="{Binding IsBusy,Converter={x:Static tm:CommonConverters.Boolean2BooleanReConverter}}" />
+                Content="查询"
+                Command="{Binding QueryDataCommand}"
+                IsEnabled="{Binding IsBusy, Converter={x:Static tm:CommonConverters.Boolean2BooleanReConverter}}" />
         </WrapPanel>
-        <DataGrid Grid.Row="1" hc:DataGridAttach.CanUnselectAllWithBlankArea="True" HeadersVisibility="All" 
-                  RowHeaderWidth="60" AutoGenerateColumns="False" ItemsSource="{Binding DataList}">
+        <tm:TmPagination DockPanel.Dock="Bottom" Pagination="{Binding Pagination}" />
+        <DataGrid ItemsSource="{Binding Pagination.Rows}" AutoGenerateColumns="False" IsReadOnly="True">
             <DataGrid.Columns>
-                <DataGridTextColumn IsReadOnly="True" Width="80" CanUserResize="False" Binding="{Binding Id}" Header="Id"/>
-                <DataGridTextColumn Binding="{Binding ProductCode}" Header="ProductCode" Width="0.5*"/>
-                <DataGridTextColumn Binding="{Binding UnScrewCaves}" Header="Caves" Width="0.8*"/>
-                <DataGridTextColumn Binding="{Binding ResultJson}" Header="Result" Width="0.5*"/>
-                <DataGridTextColumn Binding="{Binding CreateTime}" Header="StartTime" Width="0.7*"/>
-                <DataGridTextColumn Binding="{Binding UpdateTime}" Header="EndTime" Width="0.7*"/>
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="70" />
+                <DataGridTextColumn Header="产品码" Binding="{Binding ProductCode}" Width="*" />
+                <DataGridTextColumn Header="需拆标记" Binding="{Binding UnScrewCaves}" Width="*" />
+                <DataGridTextColumn Header="位置" Binding="{Binding Locations}" Width="*" />
+                <DataGridTextColumn Header="穴位结果" Binding="{Binding ResultJson}" Width="2*" />
+                <DataGridTextColumn Header="已下线(1)" Binding="{Binding IsDeleted}" Width="90" />
+                <DataGridTextColumn Header="上料时间" Binding="{Binding CreateTime}" Width="170" />
+                <DataGridTextColumn Header="更新时间" Binding="{Binding UpdateTime}" Width="170" />
             </DataGrid.Columns>
         </DataGrid>
-        <Border
-            Grid.Row="1"
-            Panel.ZIndex="2"
-            Opacity="0.7"
-            Background="LightGray"
-            Visibility="{Binding IsBusy,Converter={x:Static tm:CommonConverters.Boolean2VisibilityConverter}}">
-            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24"
-                       Text="Loading..." Foreground="Red"/>
-        </Border>
-    </Grid>
+    </DockPanel>
 </UserControl>

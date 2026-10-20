@@ -1,2 +1,0 @@
-﻿Log_WritePlcUnknownType={0} contains unknown type: {1}
-Log_WritePlcFailed=Write failed: {0}
