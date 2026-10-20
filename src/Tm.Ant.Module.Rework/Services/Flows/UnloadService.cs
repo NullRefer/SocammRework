@@ -1,6 +1,7 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
 using Tm.Ant.Module.Rework.Interfaces.Flows;
 using Tm.Ant.Module.Rework.Models.Pto;
+using Tm.Ant.Module.Rework.Models.SFC;
 using Tm.Ant.Module.Rework.Provider;
 
 namespace Tm.Ant.Module.Rework.Services.Flows;
@@ -37,7 +38,7 @@ internal sealed class UnloadService(IFlowIoService io, IProductService products,
             var sfcDescription = "质量NG，未上传PASS";
             if (isOk)
             {
-                var pass = await sfc.StationRecordAsync(new RecoredRequest
+                var pass = await sfc.StationRecordAsync(new StationRecordRequest
                 {
                     Sn = scan.Data,
                     Result = "PASS",

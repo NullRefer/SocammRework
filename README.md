@@ -10,37 +10,48 @@ dotnet build Tm.Ant.LgaRework.sln --no-restore
 dotnet publish src/Tm.Ant.Shell/Tm.Ant.Shell.csproj -c Release -r win-x64 --self-contained false
 ```
 
-`NuGet.Config` 目前使用相邻 `../Lpu4223/nupkgs` 作为 Tm.Ant 3.2.0 本地包源，并保留 nuget.org。其他环境应将该源替换为可访问的同版本包源。
+`NuGet.Config` 使用相邻 `../Lpu4223/nupkgs` 作为 Tm.Ant 3.2.0 本地包源，并保留 nuget.org。其他环境应替换为可访问的同版本包源。
 
-没有新增单元测试项目。跨平台支持构建和非 WPF 代码验证，实际程序在 Windows 运行。框架依赖部署端的 .NET 10 Desktop Runtime / ASP.NET Core Runtime，具体要求见发布目录的 runtimeconfig.json。
+没有新增单元测试项目。跨平台支持构建，实际程序在 Windows 运行，部署需要 .NET 10 Desktop Runtime / ASP.NET Core Runtime。
 
-## 启动配置
+## 配置
 
-- `SingleModuleName`：`Tm.Ant.Module.Rework`。
-- `LocalConfig.FlowName`：按机台选择 `LD`、`UNSCREW1`、`UNSCREW2`、`ULD`，FlowJob 已启用。
-- 默认 `RunMode=Offline`，使用新空库 `Config/rework.db`。没有配置真实设备，不会虚构默认设备连接。
-- MySQL 生产运行：配置真实连接串并设置 `RunMode=Online`，先由部署人员核对/准备数据库。
-- 设备管理中配置 `MainPlc`、`ProductScanner1`；拆螺丝机另外配置 `Tightening1`、`Tightening2`。
-- Vanguard 设备 subtype 为 `VanguardVLib`，业务接口为 `ITighteningDevice`，两把螺丝批的 ToolNo 分别配置为 1、2。
-- 首次配置设备完成后重启软件或通过框架任务管理重新启动 FlowJob，让工站完成设备就绪检查与订阅。
-- SFC 参数使用 `ReworkSfc` 本机配置，可通过“重工线SFC”页面或框架配置管理编辑。屏蔽开关沿用共享字典 key `Shield`。
-- SFC 屏蔽时使用上料页面选择的模拟需拆穴位；默认八穴均不选。零需拆集合下料判 NG，不上传 PASS。
+Shell 配置结构与 Lpu4223 一致：
 
-## 数据与迁移
+- `Config/appsettings.json`：版本、运行模式、MockHost、FileServerHost、数据库连接串。MySQL 连接串按部署环境填写。
+- `Config/littleAnt.db`：保留原本地数据库，按 Lpu4223 的方式复制，不另设种子目录或初始化复制目标。
+- `Config/Unchanged/appsettings.ModuleConfig.json`、`appsettings.nlog.json`：固定 UI 与日志配置。
 
-- 新库脚本：`doc/sql/mysql_init.sql`、`doc/sql/sqlite_init.sql`，均不包含生产数据或 DROP TABLE。
-- `assets/seed/rework.db` 是由 SQLite 脚本生成的空白种子。构建/发布只在目标文件不存在时复制，不覆盖运行库。
-- `appsettings.json`、`appsettings.DeviceConfig.json`、`appsettings.ReworkSfc.json` 同样只在目标不存在时复制；重复构建或发布保留现场配置，模板更新需人工合并。
-- 原 `src/Tm.Ant.Shell/Config/littleAnt.db` 保留原文件，已取消复制。它不是 3.2.0 新库，不能直接当新版本种子使用。
-- 不自动连接或修改旧 MySQL，也不自动迁移旧历史表。部署前备份现有库；旧框架表的列差异需要单独核对，初始化脚本不替代存量数据库迁移。
-- 旧 `ReworkOption.Sfc` 参数应迁入 `Config/appsettings.ReworkSfc.json` 的 `ReworkSfc` 节；旧设备 IP/端口应迁入设备管理，不再读取旧 ReworkOption 设备节点。
-- 曲线默认保存在部署目录的 `Data/screw/日期/`。可用 `ReworkCurveDirectory` 指向原曲线目录；仍支持旧 JSON 曲线字段和按日期、产品码查询。
+设备、机台、本机参数、任务开关与 SFC 业务参数通过框架配置管理生成和维护，不在 Shell 预置对应 JSON，也不在 appsettings 中展开默认值。发布沿用标准 PreserveNewest 复制规则；部署更新时保留现场配置和数据库。
 
-## 文档
+- 工站 FlowName：`LD`、`UNSCREW1`、`UNSCREW2`、`ULD`。
+- 设备 ID：`MainPlc`、`ProductScanner1`；拆螺丝机另有 `Tightening1`、`Tightening2`。
+- Vanguard subtype：`VanguardVLib`，接口为 `ITighteningDevice`，两把工具 ToolNo 分别为 1、2。
+- 首次配置完成后重新启动 FlowJob 或软件，完成设备检查和订阅。
+- SFC 参数使用 `ReworkSfc` 本机配置，可通过“重工线SFC”或框架配置管理编辑；屏蔽开关使用共享字典 key `Shield`。
+- 屏蔽 SFC 时使用选择的模拟需拆穴位；默认八穴均不选，零需拆集合下料判 NG。
 
-- `doc/业务流程说明.md`：已实现业务、数据语义及保留策略。
-- `doc/Socamm重工线-PLC通讯协议.xlsx`：业务 PLC 协议，不含 IP/PHM 表。
-- `doc/VLib设备接入.md`：品牌实现、寄存器解析、生命周期与运维参数。
-- `doc/重构验证记录.md`：实际验证范围及环境限制。
+## 数据库脚本
 
-core 3.2.0 的传递依赖目前存在 NuGet 审计告警（ImageSharp、SQLitePCLRaw）；本次未擅自升级框架或其依赖基线。
+框架初始化与业务初始化分别执行：
+
+| 数据库 | 框架表 | 业务 flow 表 |
+|---|---|---|
+| MySQL | `doc/mysql_common.sql` | `doc/1数据库创建初始化脚本.sql` |
+| SQLite | `doc/sql/sqlite_common.sql` | `doc/sql/sqlite_flow.sql` |
+
+脚本不包含 DROP TABLE 或生产数据，不自动连接数据库。现有本地库保持原文件，未自动更新结构；使用前按 core 3.2.0 核对现有列。初始化脚本不能替代存量库迁移，部署前备份。
+
+仅使用 flow 主表，软删表示下线，报表包含软删记录。旧 `ReworkOption.Sfc` 参数迁入框架管理的 `ReworkSfc`；旧设备参数迁入设备管理。
+
+曲线默认保存在部署目录 `Data/screw/日期/`，可用 `ReworkCurveDirectory` 指向原目录；支持旧 JSON 字段和日期/产品码查询。
+
+## 文档与模型
+
+- `doc/业务流程说明.md`：工站业务、PLC 交互与数据语义。
+- `doc/Socamm重工线-PLC通讯协议.xlsx`：业务 PLC 协议。
+- `doc/VLib设备接入.md`：设备生命周期、寄存器与参数。
+- `doc/重构验证记录.md`：验证范围和环境限制。
+- `Models/SFC/LoadConfirm.cs`：上料确认请求与响应；`StationRecord.cs`：普通过站请求与响应，均为独立模型，不使用继承。
+
+core 3.2.0 的传递依赖存在 NuGet 审计告警（ImageSharp、SQLitePCLRaw），本次保持指定版本。

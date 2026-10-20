@@ -1,4 +1,5 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
+using Tm.Ant.Module.Rework.Models.SFC;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
 
@@ -73,7 +74,7 @@ public partial class SfcConfigViewModel : ObservableObject, INavigationAware
             var token = _session?.Token ?? CancellationToken.None;
             object result = action == "Rework"
                 ? await _sfcService.GetCavesAsync(ProductCode.Trim(), token)
-                : await _sfcService.StationRecordAsync(new RecoredRequest
+                : await _sfcService.StationRecordAsync(new StationRecordRequest
                 {
                     Sn = ProductCode.Trim(),
                     Result = "PASS",

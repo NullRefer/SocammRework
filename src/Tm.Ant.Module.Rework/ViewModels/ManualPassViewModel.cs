@@ -1,4 +1,5 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
+using Tm.Ant.Module.Rework.Models.SFC;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
 
@@ -39,7 +40,7 @@ public partial class ManualPassViewModel : ObservableObject
 
         try
         {
-            var result = await _sfcService.StationRecordAsync(new Models.RecoredRequest
+            var result = await _sfcService.StationRecordAsync(new StationRecordRequest
             {
                 Sn = ProductCode.Trim(),
                 ErrorCode = "N/A",
