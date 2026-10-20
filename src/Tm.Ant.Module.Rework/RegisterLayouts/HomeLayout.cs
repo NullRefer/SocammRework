@@ -2,12 +2,20 @@
 
 namespace Tm.Ant.Module.Rework.RegisterLayouts;
 
-public sealed class ReworkHomeLayout(IServiceProvider services, IMachineConfigService machines) : HomeLayout(services)
+public sealed class ReworkHomeLayout : HomeLayout
 {
+    private readonly IMachineConfigService _machines;
+
+    public ReworkHomeLayout(IServiceProvider services, IMachineConfigService machines)
+        : base(services)
+    {
+        _machines = machines;
+    }
+
     protected override void RegisterLayouts()
     {
         base.RegisterLayouts();
-        if (machines.GetCurrentMachine()?.FlowName == FlowType.ULD.ToString())
+        if (_machines.GetCurrentMachine()?.FlowName == FlowType.ULD.ToString())
         {
             RegisterLeftRightLayout<PCBResultDisplay>("拆除结果");
         }

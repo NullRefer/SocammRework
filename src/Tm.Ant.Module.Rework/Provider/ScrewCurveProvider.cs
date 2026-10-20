@@ -14,11 +14,19 @@ public interface IScrewCurveProvider : ISingleton
     Task<IReadOnlyList<ScrewCurveEvent>> QueryAsync(DateTime date, string code, CancellationToken token);
 }
 
-internal sealed class ScrewCurveProvider(IConfiguration configuration, ILogger<ScrewCurveProvider> logger)
-    : IScrewCurveProvider
+internal sealed class ScrewCurveProvider : IScrewCurveProvider
 {
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<ScrewCurveProvider> _logger;
     private readonly ConcurrentDictionary<int, ScrewCurveEvent> _latest = new();
-    private string DataRoot => configuration["ReworkCurveDirectory"]
+
+    public ScrewCurveProvider(IConfiguration configuration, ILogger<ScrewCurveProvider> logger)
+    {
+        _configuration = configuration;
+        _logger = logger;
+    }
+
+    private string DataRoot => _configuration["ReworkCurveDirectory"]
         ?? Path.Combine(AppContext.BaseDirectory, "Data", "screw");
 
     public async Task SetCurveAsync(ScrewCurveEvent item, CancellationToken token = default)
@@ -67,7 +75,7 @@ internal sealed class ScrewCurveProvider(IConfiguration configuration, ILogger<S
             }
             catch (JsonException ex)
             {
-                logger.LogWarning(ex, "恢复最近曲线时跳过无效文件({File})", file);
+                _logger.LogWarning(ex, "恢复最近曲线时跳过无效文件({File})", file);
             }
         }
     }
@@ -94,7 +102,7 @@ internal sealed class ScrewCurveProvider(IConfiguration configuration, ILogger<S
             }
             catch (JsonException ex)
             {
-                logger.LogWarning(ex, "曲线文件({File})无法解析，跳过此文件", file);
+                _logger.LogWarning(ex, "曲线文件({File})无法解析，跳过此文件", file);
             }
         }
 

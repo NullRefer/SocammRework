@@ -4,7 +4,7 @@
 - 依据 `doc/Socamm重工线-PLC通讯协议.xlsx` 和 `doc/业务流程说明.md` 开发；不得擅自新增 PLC 地址或改变反馈含义。
 - 应用 tm-ant-code-style、flow-organization、flow-interaction、logging、device-io、configuration、wpf；初始化与部署骨架参考 project-init。
 - 不新增单元测试项目。构建、静态核对和临时隔离冒烟用于验证，不连接生产数据库、SFC 或设备。
-- `LDFlow`、`UldFlow` 直接实现 `IFlowBase`；两台拆螺丝机继续共用 `ScrewFlowBase`。各站业务步骤在自己的 Service 中展开。
+- `LDFlow`、`UldFlow` 直接实现 `IFlowBase`；两台拆螺丝机继续共用 `ScrewFlowBase`。各站业务交互直接在 Flow 中展开，不另设工站 FlowService 接口或实现；IO、数据库、SFC 等基础能力保留独立服务。
 - 地址按工站存于 `Models/Pto`。曲线为同一模型的两套地址，仅本地文件存储，不回写或清零 PLC；D168 保存主表成功后才清零。
 - 设备通过 `IDeviceFactory` 和 `DeviceIds` 获取。禁止重新引入 IPlcFactory、ITmSocketFactory 或业务层品牌连接、自动重连。
 - Vanguard 驱动在独立 Communication 实现项目中，实现 `ITighteningDevice`，生命周期遵守框架 Device 接入手册。

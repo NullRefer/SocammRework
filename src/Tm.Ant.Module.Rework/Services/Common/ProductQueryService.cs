@@ -3,12 +3,19 @@ using Tm.Ant.Module.Rework.Interfaces.Common;
 
 namespace Tm.Ant.Module.Rework.Services.Common;
 
-internal sealed class ProductQueryService(IRepositoryFactory repositories) : IProductQueryService
+internal sealed class ProductQueryService : IProductQueryService
 {
+    private readonly IRepositoryFactory _repositories;
+
+    public ProductQueryService(IRepositoryFactory repositories)
+    {
+        _repositories = repositories;
+    }
+
     public async Task<PagedResultDto<FlowMain>> QueryAsync(DateTime start, DateTime end, string code, int page,
         int size, CancellationToken token)
     {
-        using var repo = repositories.CreateRepository<FlowMain>();
+        using var repo = _repositories.CreateRepository<FlowMain>();
         var query = repo.GetAll().Where(item => item.CreateTime >= start && item.CreateTime < end);
         if (!string.IsNullOrWhiteSpace(code))
         {

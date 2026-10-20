@@ -46,6 +46,8 @@ Shell 配置结构与 Lpu4223 一致：
 
 曲线默认保存在部署目录 `Data/screw/日期/`，可用 `ReworkCurveDirectory` 指向原目录；支持旧 JSON 字段和日期/产品码查询。
 
+交互逻辑直接位于 `LDFlow`、`ScrewFlowBase`、`UldFlow`，不额外设置工站 FlowService；基础 IO、产品数据、SFC 服务仍独立。两台拆螺丝机共用 `ScrewFlowBase`。
+
 ## 文档与模型
 
 - `doc/业务流程说明.md`：工站业务、PLC 交互与数据语义。

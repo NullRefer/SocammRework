@@ -59,8 +59,13 @@ public partial class UnitShieldViewModel : ObservableObject
     }
 }
 
-public partial class TestCaveItem(int number) : ObservableObject
+public partial class TestCaveItem : ObservableObject
 {
-    public int Number { get; } = number;
+    public TestCaveItem(int number)
+    {
+        Number = number;
+    }
+
+    public int Number { get; }
     [ObservableProperty] private bool _selected;
 }

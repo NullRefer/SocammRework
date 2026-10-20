@@ -2,8 +2,13 @@
 
 namespace Tm.Ant.Module.Rework.RegisterLayouts;
 
-internal sealed class ReworkParamLayout(IServiceProvider services) : ParamLayout(services)
+internal sealed class ReworkParamLayout : ParamLayout
 {
+    public ReworkParamLayout(IServiceProvider services)
+        : base(services)
+    {
+    }
+
     protected override void RegisterLayouts()
     {
         base.RegisterLayouts();

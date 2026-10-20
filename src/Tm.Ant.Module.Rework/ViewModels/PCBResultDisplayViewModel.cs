@@ -5,21 +5,28 @@ using Tm.Ant.Module.Rework.Provider;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
 
-public partial class PCBResultDisplayViewModel(IEventBus events, IFlowResultState state)
-    : ObservableObject, INavigationAware
+public partial class PCBResultDisplayViewModel : ObservableObject, INavigationAware
 {
+    private readonly IEventBus _events;
+    private readonly IFlowResultState _state;
     private FlowEventPubSub _subscription;
     [ObservableProperty] private string _productCode = "";
     [ObservableProperty] private string _totalResult = "";
     [ObservableProperty] private ObservableCollection<CaveMarker> _markers = new();
 
+    public PCBResultDisplayViewModel(IEventBus events, IFlowResultState state)
+    {
+        _events = events;
+        _state = state;
+    }
+
     public void OnNavigatedTo(object parameter)
     {
         _subscription?.Unsubscribe(OnResult);
-        _subscription = events.Subscribe<FlowEventPubSub>(OnResult, ThreadOption.UIThread);
-        if (state.Latest != null)
+        _subscription = _events.Subscribe<FlowEventPubSub>(OnResult, ThreadOption.UIThread);
+        if (_state.Latest != null)
         {
-            OnResult(state.Latest);
+            OnResult(_state.Latest);
         }
     }
 
