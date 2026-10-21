@@ -1,40 +1,37 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
 using Tm.Ant.Module.Rework.Models.SFC;
-using Tm.Ant.Module.Rework.Provider;
 
 namespace Tm.Ant.Module.Rework.Services.Common;
 
 internal sealed class NvdSfcService : INvdSfcService
 {
-    private readonly IHttpService _http;
-    private readonly IConfigService _configs;
-    private readonly IShieldProvider _shield;
+    private readonly IHttpService _httpService;
+    private readonly IConfigService _configService;
     private static readonly string[] Positions = ["172", "170", "168", "212", "174", "176", "178", "180"];
 
-    public NvdSfcService(IHttpService http, IConfigService configs, IShieldProvider shield)
+    public NvdSfcService(IHttpService httpService, IConfigService configService)
     {
-        _http = http;
-        _configs = configs;
-        _shield = shield;
+        _httpService = httpService;
+        _configService = configService;
     }
 
     public async Task<OperationResult<(short[] Caves, string Locations)>> GetCavesAsync(string code,
         CancellationToken token = default)
     {
-        var switches = await _shield.GetShieldAsync(token);
+        var switches = await _configService.GetAsync<ShieldModel>(token);
         if (!switches.Sfc)
         {
             return OperationResult.Success<(short[], string)>((FlowDictKeys.TestCaves.ToArray(), null));
         }
 
-        var config = await _configs.GetAsync<SfcConfigModel>(token);
-        if (string.IsNullOrWhiteSpace(config.ReworkUrl))
+        var config = await _configService.GetAsync<SfcConfigModel>(token);
+        if (string.IsNullOrWhiteSpace(config.CheckUrl))
         {
             return OperationResult.Error<(short[], string)>("SFC需拆查询地址未配置。", 9999);
         }
 
-        var response = await _http.PostJsonAsync(
-            config.ReworkUrl, new LoadConfirmRequest { Sn = code }, LogCategory.SFC, token);
+        var response = await _httpService.PostJsonAsync(
+            config.CheckUrl, new CheckRequest { Sn = code }, LogCategory.SFC, token);
         if (!response.IsSuccess)
         {
             token.ThrowIfCancellationRequested();
@@ -42,10 +39,10 @@ internal sealed class NvdSfcService : INvdSfcService
                 response.Code == 0 ? 9999 : response.Code);
         }
 
-        LoadConfirmResponse data;
+        CheckResponse data;
         try
         {
-            data = JsonConvert.DeserializeObject<LoadConfirmResponse>(response.Data);
+            data = JsonConvert.DeserializeObject<CheckResponse>(response.Data);
         }
         catch (JsonException ex)
         {
@@ -90,13 +87,13 @@ internal sealed class NvdSfcService : INvdSfcService
 
     public async Task<OperationResult> StationRecordAsync(string code, CancellationToken token = default)
     {
-        var switches = await _shield.GetShieldAsync(token);
+        var switches = await _configService.GetAsync<ShieldModel>(token);
         if (!switches.Sfc)
         {
             return OperationResult.Success("SFC过站已屏蔽，模拟成功。");
         }
 
-        var config = await _configs.GetAsync<SfcConfigModel>(token);
+        var config = await _configService.GetAsync<SfcConfigModel>(token);
         if (string.IsNullOrWhiteSpace(config.RecordUrl))
         {
             return OperationResult.Error("SFC过站接口地址未配置。", 9999);
@@ -110,7 +107,7 @@ internal sealed class NvdSfcService : INvdSfcService
             Emp = config.Emp,
             MachineCode = config.MachineCode
         };
-        var response = await _http.PostJsonAsync(config.RecordUrl, request, LogCategory.SFC, token);
+        var response = await _httpService.PostJsonAsync(config.RecordUrl, request, LogCategory.SFC, token);
         if (!response.IsSuccess)
         {
             token.ThrowIfCancellationRequested();

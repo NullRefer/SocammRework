@@ -1,18 +1,18 @@
 ﻿namespace Tm.Ant.Module.Rework.Models.SFC;
 
 /// <summary>
-/// 上料确认接口 GET_DEKIT_LOCATION 请求。
+/// 需拆查询接口 GET_DEKIT_LOCATION 请求。
 /// </summary>
-public sealed class LoadConfirmRequest
+public sealed class CheckRequest
 {
     [JsonProperty("SN")]
     public string Sn { get; set; }
 }
 
 /// <summary>
-/// 上料确认接口响应，提供当前站点和本产品需拆位置。
+/// 需拆查询接口响应，提供当前站点和本产品需拆位置。
 /// </summary>
-public sealed class LoadConfirmResponse
+public sealed class CheckResponse
 {
     [JsonProperty("rc")]
     public int Rc { get; set; }

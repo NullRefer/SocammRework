@@ -4,14 +4,14 @@ namespace Tm.Ant.Module.Rework.ViewModels;
 
 public partial class ManualPassViewModel : ObservableObject
 {
-    private readonly INvdSfcService _sfcService;
+    private readonly INvdSfcService _nvdSfcService;
     private readonly IDialogService _dialogService;
     private readonly ILogger<ManualPassViewModel> _logger;
 
-    public ManualPassViewModel(INvdSfcService sfcService, IDialogService dialogService,
+    public ManualPassViewModel(INvdSfcService nvdSfcService, IDialogService dialogService,
         ILogger<ManualPassViewModel> logger)
     {
-        _sfcService = sfcService;
+        _nvdSfcService = nvdSfcService;
         _dialogService = dialogService;
         _logger = logger;
     }
@@ -39,7 +39,7 @@ public partial class ManualPassViewModel : ObservableObject
 
         try
         {
-            var result = await _sfcService.StationRecordAsync(ProductCode.Trim());
+            var result = await _nvdSfcService.StationRecordAsync(ProductCode.Trim());
             Message = result.ToJson();
 
             if (!result.IsSuccess)

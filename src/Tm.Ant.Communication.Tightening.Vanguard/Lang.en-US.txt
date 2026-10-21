@@ -1,0 +1,10 @@
+﻿DeviceConfig_Category_Network=Network
+DeviceConfig_Category_Tightening=Tightening
+DeviceConfig_Ip=IP Address
+DeviceConfig_Description_Ip=The VLib controller IP address for Modbus TCP communication.
+DeviceConfig_Port=Port
+DeviceConfig_Description_Port=The VLib controller Modbus TCP port, from 1 to 65535.
+DeviceConfig_ToolNo=Tool No
+DeviceConfig_Description_ToolNo=The tool number used to associate business cavities and curves; must be 1 or 2.
+DeviceConfig_TimeoutMs=Communication Timeout(ms)
+DeviceConfig_Description_TimeoutMs=The connection and communication read/write timeout in milliseconds; minimum 100.

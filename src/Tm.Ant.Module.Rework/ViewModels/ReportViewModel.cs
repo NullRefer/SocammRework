@@ -6,17 +6,18 @@ namespace Tm.Ant.Module.Rework.ViewModels;
 
 public partial class ReportViewModel : ObservableObject, INavigationAware
 {
-    private readonly IProductQueryService _query;
-    private readonly IDialogService _dialogs;
+    private readonly IProductQueryService _productQueryService;
+    private readonly IDialogService _dialogService;
     private readonly ILogger _logger;
     private CancellationTokenSource _session;
     private CancellationTokenSource _queryCancellation;
     private Task _loading = Task.CompletedTask;
 
-    public ReportViewModel(IProductQueryService query, IDialogService dialogs, ILogger<ReportViewModel> logger)
+    public ReportViewModel(IProductQueryService productQueryService, IDialogService dialogService,
+        ILogger<ReportViewModel> logger)
     {
-        _query = query;
-        _dialogs = dialogs;
+        _productQueryService = productQueryService;
+        _dialogService = dialogService;
         _logger = logger;
         Pagination.OnPageChanged = _ => _loading = LoadAsync();
     }
@@ -49,7 +50,7 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
 
         if (EndDate.Date < SelectDate.Date)
         {
-            _dialogs.ShowWarning("结束日期不能早于开始日期。");
+            _dialogService.ShowWarning("结束日期不能早于开始日期。");
             return;
         }
 
@@ -61,7 +62,7 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
         {
             var request = new ProductQueryRequest(Pagination.PageIndex, Pagination.PageSize, ProductCode,
                 SelectDate.Date, EndDate.Date.AddDays(1));
-            var result = await _query.QueryAsync(request, token);
+            var result = await _productQueryService.QueryAsync(request, token);
             if (!token.IsCancellationRequested)
             {
                 Pagination.UpdateFromPagedResultDto(result);
@@ -78,7 +79,7 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
             }
 
             _logger.LogError(ex, "产品报表查询失败");
-            _dialogs.ShowError($"产品报表查询失败：{ex.Message}");
+            _dialogService.ShowError($"产品报表查询失败：{ex.Message}");
         }
         finally
         {

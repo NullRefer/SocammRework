@@ -6,7 +6,7 @@
 public interface IFlowIoService : ISingleton
 {
     /// <summary>
-    /// 执行本工站扫码、校验和业务处理，按协议回写成功或失败，由调用入口随后清零扫码触发。
+    /// 按设备ID扫码并裁剪两端控制字符和空白，校验产品码后返回，由Flow执行后续交互。
     /// </summary>
     Task<OperationResult<string>> ScanAsync(string scannerId, CancellationToken token);
     /// <summary>
@@ -14,7 +14,7 @@ public interface IFlowIoService : ISingleton
     /// </summary>
     Task<OperationResult<short>> ReadShortAsync(string address, CancellationToken token);
     /// <summary>
-    /// 按主PLC设备ID读取30字符产品码，读取失败由业务空值校验处理。
+    /// 按主PLC设备ID读取30字符产品码并裁剪两端控制字符和空白，读取失败保留原结果。
     /// </summary>
     Task<OperationResult<string>> ReadCodeAsync(string address, CancellationToken token);
     /// <summary>

@@ -1,0 +1,10 @@
+﻿DeviceConfig_Category_Network=网络配置
+DeviceConfig_Category_Tightening=拧紧配置
+DeviceConfig_Ip=IP地址
+DeviceConfig_Description_Ip=VLib 控制器的 Modbus TCP 通讯 IP 地址。
+DeviceConfig_Port=端口
+DeviceConfig_Description_Port=VLib 控制器的 Modbus TCP 通讯端口，范围为 1–65535。
+DeviceConfig_ToolNo=螺丝批编号
+DeviceConfig_Description_ToolNo=用于关联业务穴位和曲线的螺丝批编号，取值为 1 或 2。
+DeviceConfig_TimeoutMs=通讯超时(ms)
+DeviceConfig_Description_TimeoutMs=连接及通讯读写的超时时间，单位为毫秒，最小为 100。

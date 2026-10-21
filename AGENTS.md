@@ -5,6 +5,7 @@
 - 应用 tm-ant-code-style、flow-organization、flow-interaction、logging、device-io、configuration、wpf；初始化与部署骨架参考 project-init。
 - 不新增单元测试项目。构建、静态核对和临时隔离冒烟用于验证，不连接生产数据库、SFC 或设备。
 - `LDFlow`、`UldFlow` 直接实现 `IFlowBase`；两台拆螺丝机继续共用 `ScrewFlowBase`。各站业务交互直接在 Flow 中展开，不另设工站 FlowService 接口或实现；IO、数据库、SFC 等基础能力保留独立服务。
+- 拧紧枪的结果/曲线订阅和接收由独立 `ScrewReceiveJob` 管理，停止时成对退订；Flow 仅负责产品交互和 PLC 穴位最终结果，不依赖拧紧枪订阅生命周期。
 - 拧紧曲线仅保存本地文件，根目录取 `IConfiguration.GetDataDirectory()`，其下按 `screw/yyyy-MM/` 存储；不实现曲线 UI、展示事件、缓存或查询。
 - 地址按工站存于 `Models/Pto`。曲线为同一模型的两套地址，仅本地文件存储，不回写或清零 PLC；D168 保存主表成功后才清零。
 - 设备通过 `IDeviceFactory` 和 `DeviceIds` 获取。禁止重新引入 IPlcFactory、ITmSocketFactory 或业务层品牌连接、自动重连。
@@ -14,6 +15,7 @@
 - 仅使用 `flow` 主表，软删表示下线；报表包含软删记录。禁止历史表和业务归档搬移。
 - 使用中文业务日志，DB 变更、设备交互与工站汇总各负责自身记录。业务接口继承生命周期标记，由框架自动扫描。
 - 业务页面统一注册在 Home；.NET 10 的 CommunityToolkit.Mvvm 可观察状态使用 `[ObservableProperty] public partial` 属性，不使用标记字段。产品查询不设置 IsBusy，使用取消令牌处理查询替换与导航离开。
+- 服务注入参数和字段使用完整接口名去掉 I 后的驼峰命名，例如 `IProductService` 对应 `productService` 和 `_productService`；Runtime 和 IO 允许使用 `runtime` / `_runtime`、`io` / `_io`。
 - C# 四空格、Allman 花括号、UTF-8 BOM/CRLF；自动属性保持同行。公共业务契约与重要类型使用三行中文 summary。
-- 验证命令：`dotnet restore Tm.Ant.LgaRework.sln`、`dotnet build Tm.Ant.LgaRework.sln --no-restore`、`dotnet format whitespace --folder src --verify-no-changes`、`git diff --check`。
+- 验证命令：`dotnet restore Tm.Ant.LgaRework.slnx`、`dotnet build Tm.Ant.LgaRework.slnx --no-restore`、`dotnet format whitespace --folder src --verify-no-changes`、`git diff --check`。
 - macOS 下不能把 Windows 目标编译当成 GUI 或现场联调验收。

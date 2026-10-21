@@ -13,26 +13,39 @@ public sealed class VanguardTighteningDeviceConfig : DeviceSubTypeConfigBase
         DeviceSubType = VanguardTighteningDevice.SubType;
     }
 
-    [LocalizedDisplayName(typeof(VanguardResources), nameof(VanguardResources.Ip), "IP地址")]
+    /// <summary>
+    /// 控制器的 Modbus TCP 通讯 IP 地址。
+    /// </summary>
+    [LocalizedCategory(typeof(LangResources), nameof(LangResources.DeviceConfig_Category_Network), "网络配置")]
+    [LocalizedDisplayName(typeof(LangResources), nameof(LangResources.DeviceConfig_Ip), "IP地址")]
+    [LocalizedDescription(typeof(LangResources), nameof(LangResources.DeviceConfig_Description_Ip),
+        "VLib 控制器的 Modbus TCP 通讯 IP 地址。")]
     public string Ip { get; set; } = "";
 
-    [LocalizedDisplayName(typeof(VanguardResources), nameof(VanguardResources.Port), "端口")]
+    /// <summary>
+    /// 控制器的 Modbus TCP 通讯端口。
+    /// </summary>
+    [LocalizedCategory(typeof(LangResources), nameof(LangResources.DeviceConfig_Category_Network), "网络配置")]
+    [LocalizedDisplayName(typeof(LangResources), nameof(LangResources.DeviceConfig_Port), "端口")]
+    [LocalizedDescription(typeof(LangResources), nameof(LangResources.DeviceConfig_Description_Port),
+        "VLib 控制器的 Modbus TCP 通讯端口，范围为 1–65535。")]
     public int Port { get; set; } = 4545;
 
-    [LocalizedDisplayName(typeof(VanguardResources), nameof(VanguardResources.ToolNo), "螺丝批编号")]
+    /// <summary>
+    /// 用于业务关联的螺丝批编号。
+    /// </summary>
+    [LocalizedCategory(typeof(LangResources), nameof(LangResources.DeviceConfig_Category_Tightening), "拧紧配置")]
+    [LocalizedDisplayName(typeof(LangResources), nameof(LangResources.DeviceConfig_ToolNo), "螺丝批编号")]
+    [LocalizedDescription(typeof(LangResources), nameof(LangResources.DeviceConfig_Description_ToolNo),
+        "用于关联业务穴位和曲线的螺丝批编号，取值为 1 或 2。")]
     public int ToolNo { get; set; } = 1;
 
-    [LocalizedDisplayName(typeof(VanguardResources), nameof(VanguardResources.Timeout), "通讯超时(ms)")]
+    /// <summary>
+    /// 连接及通讯读写超时毫秒数。
+    /// </summary>
+    [LocalizedCategory(typeof(LangResources), nameof(LangResources.DeviceConfig_Category_Tightening), "拧紧配置")]
+    [LocalizedDisplayName(typeof(LangResources), nameof(LangResources.DeviceConfig_TimeoutMs), "通讯超时(ms)")]
+    [LocalizedDescription(typeof(LangResources), nameof(LangResources.DeviceConfig_Description_TimeoutMs),
+        "连接及通讯读写的超时时间，单位为毫秒，最小为 100。")]
     public int TimeoutMs { get; set; } = 1000;
-}
-
-/// <summary>
-/// 设备管理属性名称的资源入口。
-/// </summary>
-public static class VanguardResources
-{
-    public static string Ip => "IP地址";
-    public static string Port => "端口";
-    public static string ToolNo => "螺丝批编号";
-    public static string Timeout => "通讯超时(ms)";
 }

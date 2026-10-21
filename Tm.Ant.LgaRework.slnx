@@ -1,0 +1,12 @@
+﻿<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Tm.Ant.Communication.Tightening.Vanguard/Tm.Ant.Communication.Tightening.Vanguard.csproj" />
+  </Folder>
+  <Project Path="src/Tm.Ant.Module.Rework/Tm.Ant.Module.Rework.csproj" />
+  <Project Path="src/Tm.Ant.Shell/Tm.Ant.Shell.csproj" />
+</Solution>

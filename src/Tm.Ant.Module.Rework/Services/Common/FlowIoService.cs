@@ -1,18 +1,17 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
-using Tm.Ant.Module.Rework.Provider;
 
 namespace Tm.Ant.Module.Rework.Services.Common;
 
 internal sealed class FlowIoService : IFlowIoService
 {
     private readonly IDeviceFactory _devices;
-    private readonly IShieldProvider _shields;
+    private readonly IConfigService _configService;
     private readonly ILogger<FlowIoService> _logger;
 
-    public FlowIoService(IDeviceFactory devices, IShieldProvider shields, ILogger<FlowIoService> logger)
+    public FlowIoService(IDeviceFactory devices, IConfigService configService, ILogger<FlowIoService> logger)
     {
         _devices = devices;
-        _shields = shields;
+        _configService = configService;
         _logger = logger;
     }
 
@@ -24,8 +23,8 @@ internal sealed class FlowIoService : IFlowIoService
             return OperationResult.Error<string>($"扫码枪({scannerId})触发失败：{response.Message}", response.Code);
         }
 
-        var code = new string((response.Data ?? "").Where(c => !char.IsControl(c)).ToArray()).Trim();
-        var switches = await _shields.GetShieldAsync(token);
+        var code = response.Data.TrimControlCharacters();
+        var switches = await _configService.GetAsync<ShieldModel>(token);
         if (!switches.Sfc && code is "Err" or "ERR" or "ERROR" or "NG")
         {
             code = $"Fake-{DateTime.Now:yyyyMMddHHmmssfff}";
@@ -47,11 +46,12 @@ internal sealed class FlowIoService : IFlowIoService
         return _devices.GetDeviceService<IPlcService>(DeviceIds.MainPlc).ReadInt16Async(address);
     }
 
-    public Task<OperationResult<string>> ReadCodeAsync(string address, CancellationToken token)
+    public async Task<OperationResult<string>> ReadCodeAsync(string address, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        return _devices.GetDeviceService<IPlcService>(DeviceIds.MainPlc)
+        var result = await _devices.GetDeviceService<IPlcService>(DeviceIds.MainPlc)
             .ReadStringAsync(address, Consts.PRODUCTCODELEN);
+        return result.IsSuccess ? OperationResult.Success<string>(result.Data.TrimControlCharacters()) : result;
     }
 
     public async Task<OperationResult> WriteAsync(string address, object value, CancellationToken token)

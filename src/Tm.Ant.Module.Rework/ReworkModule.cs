@@ -10,7 +10,7 @@ internal sealed class ReworkModule : AbstractTmModule
     public override void Configure(IServiceCollection services, IConfiguration configuration)
     {
         services.RegisterUIServices(ThisAssembly);
-        if (configuration.GetLocalConfigOption().FlowName == FlowType.LD.ToString())
+        if (configuration.GetLocalConfigOption().FlowName == "LD")
         {
             services.RegisterToRegion<UnitShield>(RegionNames.MainShieldRegion);
         }

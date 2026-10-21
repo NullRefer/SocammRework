@@ -9,7 +9,7 @@ public sealed class SfcConfigModel : IConfigNormalizer<SfcConfigModel>, IConfigV
     public string Emp { get; set; } = "";
     public string MachineCode { get; set; } = "";
     public string RecordUrl { get; set; } = "";
-    public string ReworkUrl { get; set; } = "";
+    public string CheckUrl { get; set; } = "";
     public string Group { get; set; } = "";
 
     public SfcConfigModel Normalize()
@@ -17,7 +17,7 @@ public sealed class SfcConfigModel : IConfigNormalizer<SfcConfigModel>, IConfigV
         Emp = Emp?.Trim() ?? "";
         MachineCode = MachineCode?.Trim() ?? "";
         RecordUrl = RecordUrl?.Trim() ?? "";
-        ReworkUrl = ReworkUrl?.Trim() ?? "";
+        CheckUrl = CheckUrl?.Trim() ?? "";
         Group = Group?.Trim() ?? "";
         return this;
     }
@@ -25,7 +25,7 @@ public sealed class SfcConfigModel : IConfigNormalizer<SfcConfigModel>, IConfigV
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
-        foreach (var url in new[] { RecordUrl, ReworkUrl }.Where(value => value.Length > 0))
+        foreach (var url in new[] { RecordUrl, CheckUrl }.Where(value => value.Length > 0))
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
             {

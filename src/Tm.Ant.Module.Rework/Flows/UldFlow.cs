@@ -1,6 +1,5 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
 using Tm.Ant.Module.Rework.Models.Pto;
-using Tm.Ant.Module.Rework.Provider;
 
 namespace Tm.Ant.Module.Rework.Flows;
 
@@ -11,26 +10,22 @@ internal sealed class UldFlow : IFlowBase
 {
     private readonly IFlowRuntimeService _runtime;
     private readonly IFlowIoService _io;
-    private readonly IProductService _products;
-    private readonly INvdSfcService _sfc;
-    private readonly IEventBus _events;
-    private readonly IFlowResultState _state;
+    private readonly IProductService _productService;
+    private readonly INvdSfcService _nvdSfcService;
     private readonly ILogger<UldFlow> _logger;
     private readonly UnloadAddress _address = new();
 
-    public UldFlow(IFlowRuntimeService runtime, IFlowIoService io, IProductService products, INvdSfcService sfc,
-        IEventBus events, IFlowResultState state, ILogger<UldFlow> logger)
+    public UldFlow(IFlowRuntimeService runtime, IFlowIoService io, IProductService productService,
+        INvdSfcService nvdSfcService, ILogger<UldFlow> logger)
     {
         _runtime = runtime;
         _io = io;
-        _products = products;
-        _sfc = sfc;
-        _events = events;
-        _state = state;
+        _productService = productService;
+        _nvdSfcService = nvdSfcService;
         _logger = logger;
     }
 
-    public string FlowName => FlowType.ULD.ToString();
+    public string FlowName => "ULD";
 
     public Task RunAsync(CancellationToken token)
     {
@@ -46,66 +41,48 @@ internal sealed class UldFlow : IFlowBase
 
     private async Task<OperationResult> ScanAsync(UnloadAddress address, string scannerId, CancellationToken token)
     {
-        try
-        {
-            var scan = await _io.ScanAsync(scannerId, token);
-            if (!scan.IsSuccess)
-            {
-                await _io.WriteAsync(address.Feedback, (short)2, token);
-                return OperationResult.Error($"下料扫码失败：{scan.Message}", scan.Code);
-            }
-
-            var pendingDisplay = new FlowEventPubSub { ProductCode = scan.Data, IsOk = false };
-            _state.Set(pendingDisplay);
-            _events.Publish(pendingDisplay);
-            var entity = await _products.GetFlowAsync(scan.Data, token);
-            if (entity == null)
-            {
-                await _io.WriteAsync(address.Feedback, (short)2, token);
-                return OperationResult.Error($"下料查询失败，产品({scan.Data})：未找到在线生产记录。");
-            }
-
-            var results = entity.GetFinalResult();
-            var isOk = results.Count > 0 && results.Values.All(value => value == "OK");
-            var display = new FlowEventPubSub { ProductCode = scan.Data, CaveResults = results, IsOk = isOk };
-            _state.Set(display);
-            _events.Publish(display);
-            var sfcDescription = "质量NG，未上传PASS";
-            if (isOk)
-            {
-                var pass = await _sfc.StationRecordAsync(scan.Data, token);
-                if (!pass.IsSuccess)
-                {
-                    await _io.WriteAsync(address.Feedback, (short)2, token);
-                    return OperationResult.Error($"下料SFC过站失败，产品({scan.Data})：{pass.Message}", pass.Code);
-                }
-
-                sfcDescription = "PASS接口处理成功（屏蔽时模拟成功）";
-            }
-
-            var offline = await _products.OfflineFlowAsync(entity, token);
-            if (!offline.IsSuccess)
-            {
-                await _io.WriteAsync(address.Feedback, (short)2, token);
-                return OperationResult.Error($"下料软删除失败：{offline.Message}", offline.Code);
-            }
-
-            await _io.WriteAsync(address.ProductCode, scan.Data, token);
-            // D201仍为处理成功反馈，产品质量单独展示，不擅自改变已确认的协议含义。
-            await _io.WriteAsync(address.Feedback, (short)1, token);
-            _logger.LogInformationToUI("下料完成，产品({Code})，需拆({Required})，逐穴结果({Results})，总质量({Quality})，SFC({Sfc})，主表已软下线",
-                LogCategory.Comm, scan.Data, entity.UnScrewCaves, JsonConvert.SerializeObject(results),
-                isOk ? "OK" : "NG", sfcDescription);
-            return OperationResult.Success();
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        var scan = await _io.ScanAsync(scannerId, token);
+        if (!scan.IsSuccess)
         {
             await _io.WriteAsync(address.Feedback, (short)2, token);
-            return OperationResult.Error($"下料交互异常：{ex.Message}");
+            return OperationResult.Error($"下料扫码失败：{scan.Message}", scan.Code);
         }
+
+        var entity = await _productService.GetFlowAsync(scan.Data, token);
+        if (entity == null)
+        {
+            await _io.WriteAsync(address.Feedback, (short)2, token);
+            return OperationResult.Error($"下料查询失败，产品({scan.Data})：未找到在线生产记录。");
+        }
+
+        var results = entity.GetFinalResult();
+        var isOk = results.Count > 0 && results.Values.All(value => value == "OK");
+        var sfcDescription = "质量NG，未上传PASS";
+        if (isOk)
+        {
+            var pass = await _nvdSfcService.StationRecordAsync(scan.Data, token);
+            if (!pass.IsSuccess)
+            {
+                await _io.WriteAsync(address.Feedback, (short)2, token);
+                return OperationResult.Error($"下料SFC过站失败，产品({scan.Data})：{pass.Message}", pass.Code);
+            }
+
+            sfcDescription = "PASS接口处理成功（屏蔽时模拟成功）";
+        }
+
+        var offline = await _productService.OfflineFlowAsync(entity, token);
+        if (!offline.IsSuccess)
+        {
+            await _io.WriteAsync(address.Feedback, (short)2, token);
+            return OperationResult.Error($"下料软删除失败：{offline.Message}", offline.Code);
+        }
+
+        await _io.WriteAsync(address.ProductCode, scan.Data, token);
+        // D201仅表示下料处理结果，不表示产品总质量。
+        await _io.WriteAsync(address.Feedback, (short)1, token);
+        _logger.LogInformationToUI("下料完成，产品({Code})，需拆({Required})，逐穴结果({Results})，总质量({Quality})，SFC({Sfc})，主表已软下线",
+            LogCategory.Comm, scan.Data, entity.UnScrewCaves, JsonConvert.SerializeObject(results),
+            isOk ? "OK" : "NG", sfcDescription);
+        return OperationResult.Success();
     }
 }

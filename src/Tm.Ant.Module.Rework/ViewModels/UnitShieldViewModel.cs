@@ -1,25 +1,32 @@
-﻿using Tm.Ant.Module.Rework.Provider;
-
-namespace Tm.Ant.Module.Rework.ViewModels;
+﻿namespace Tm.Ant.Module.Rework.ViewModels;
 
 public partial class UnitShieldViewModel : ObservableObject
 {
-    private readonly IShieldProvider _shields;
-    private readonly IDialogService _dialogs;
+    private readonly IConfigService _configService;
+    private readonly IDialogService _dialogService;
     private readonly Task _loading;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSelectCaves))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyTestCavesCommand))]
     public partial bool SfcEnabled { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSelectCaves))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyTestCavesCommand))]
+    public partial bool IsLoaded { get; set; }
+
+    public bool CanSelectCaves => IsLoaded && !SfcEnabled;
 
     public ObservableCollection<TestCaveItem> TestCaves { get; } = new();
 
-    public UnitShieldViewModel(IShieldProvider shields, IDialogService dialogs)
+    public UnitShieldViewModel(IConfigService configService, IDialogService dialogService)
     {
-        _shields = shields;
-        _dialogs = dialogs;
+        _configService = configService;
+        _dialogService = dialogService;
         for (var i = 1; i <= 8; i++)
         {
-            TestCaves.Add(new TestCaveItem(i));
+            TestCaves.Add(new TestCaveItem(i) { Selected = FlowDictKeys.TestCaves[i - 1] == 1 });
         }
 
         _loading = LoadAsync();
@@ -29,11 +36,12 @@ public partial class UnitShieldViewModel : ObservableObject
     {
         try
         {
-            SfcEnabled = (await _shields.GetShieldAsync()).Sfc;
+            SfcEnabled = (await _configService.GetAsync<ShieldModel>()).Sfc;
+            IsLoaded = true;
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"屏蔽配置读取失败：{ex.Message}");
+            _dialogService.ShowError($"屏蔽配置读取失败：{ex.Message}");
         }
     }
 
@@ -43,22 +51,37 @@ public partial class UnitShieldViewModel : ObservableObject
         await _loading;
         try
         {
-            var value = await _shields.GetShieldAsync();
-            var draft = new ShieldModel { Sfc = !value.Sfc, IsFakeMode = value.IsFakeMode };
-            await _shields.SaveAsync(draft);
-            SfcEnabled = draft.Sfc;
+            var value = await _configService.GetAsync<ShieldModel>();
+            var draft = new ShieldModel { Sfc = !value.Sfc };
+            var saved = await _configService.SaveAsync(draft);
+            SfcEnabled = saved.Sfc;
+            IsLoaded = true;
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"屏蔽配置保存失败：{ex.Message}");
+            _dialogService.ShowError($"屏蔽配置保存失败：{ex.Message}");
         }
     }
 
-    [RelayCommand]
-    private void ApplyTestCaves()
+    [RelayCommand(CanExecute = nameof(CanSelectCaves))]
+    private async Task ApplyTestCavesAsync()
     {
-        FlowDictKeys.TestCaves = TestCaves.Select(item => (short)(item.Selected ? 1 : 0)).ToArray();
-        _dialogs.ShowInfo("模拟需拆穴位已应用，仅SFC屏蔽时使用。");
+        try
+        {
+            SfcEnabled = (await _configService.GetAsync<ShieldModel>()).Sfc;
+            if (SfcEnabled)
+            {
+                _dialogService.ShowWarning("请先关闭SFC，再应用需拆穴位。");
+                return;
+            }
+
+            FlowDictKeys.TestCaves = TestCaves.Select(item => (short)(item.Selected ? 1 : 0)).ToArray();
+            _dialogService.ShowInfo("需拆穴位已应用，仅SFC关闭时用于后续上料。");
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"需拆穴位应用失败：{ex.Message}");
+        }
     }
 }
 
