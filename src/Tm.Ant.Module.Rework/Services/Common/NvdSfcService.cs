@@ -15,7 +15,7 @@ internal sealed class NvdSfcService : INvdSfcService
         _configService = configService;
     }
 
-    public async Task<OperationResult<(short[] Caves, string Locations)>> GetCavesAsync(string code,
+    public async Task<OperationResult<(short[] Caves, string Locations)>> CheckAsync(string code,
         CancellationToken token = default)
     {
         var switches = await _configService.GetAsync<ShieldModel>(token);
@@ -27,7 +27,7 @@ internal sealed class NvdSfcService : INvdSfcService
         var config = await _configService.GetAsync<SfcConfigModel>(token);
         if (string.IsNullOrWhiteSpace(config.CheckUrl))
         {
-            return OperationResult.Error<(short[], string)>("SFC需拆查询地址未配置。", 9999);
+            return OperationResult.Error<(short[], string)>("SFC上料确认地址未配置。", 9999);
         }
 
         var response = await _httpService.PostJsonAsync(
@@ -35,7 +35,7 @@ internal sealed class NvdSfcService : INvdSfcService
         if (!response.IsSuccess)
         {
             token.ThrowIfCancellationRequested();
-            return OperationResult.Error<(short[], string)>($"SFC需拆查询请求失败：{response.Message}",
+            return OperationResult.Error<(short[], string)>($"SFC上料确认请求失败：{response.Message}",
                 response.Code == 0 ? 9999 : response.Code);
         }
 
@@ -46,40 +46,32 @@ internal sealed class NvdSfcService : INvdSfcService
         }
         catch (JsonException ex)
         {
-            return OperationResult.Error<(short[], string)>($"SFC需拆响应解析失败：{ex.Message}", 9999);
+            return OperationResult.Error<(short[], string)>($"SFC上料确认响应解析失败：{ex.Message}", 9999);
         }
 
         if (data == null)
         {
-            return OperationResult.Error<(short[], string)>("SFC需拆响应为空。", 9999);
-        }
-
-        if (data.Rc != 0)
-        {
-            return OperationResult.Error<(short[], string)>($"SFC上料确认失败，产品({code})：{data.Result}", data.Rc);
+            return OperationResult.Error<(short[], string)>("SFC上料确认响应为空。", 9999);
         }
 
         var groups = config.Group.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (!groups.Contains(data.Group))
+        var productGroups = (data.Group ?? "").Split(',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (!groups.Intersect(productGroups).Any())
         {
             return OperationResult.Error<(short[], string)>(
-                $"产品({code})站点({data.Group})不属于配置站点({config.Group})。", 9999);
+                $"SFC上料确认失败，产品({code})站点({data.Group})不属于配置站点({config.Group})。", 9999);
         }
 
         var locations = (data.Locations ?? "").Split(',',
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var lga = locations.Where(value => value.StartsWith('L')).Select(value => value[1..]).Order().ToArray();
-        var socamm = locations.Where(value => value.StartsWith('J')).Select(value => value[1..]).Order().ToArray();
-        if (lga.Length == 0 || !lga.SequenceEqual(socamm) || lga.Any(value => !Positions.Contains(value)))
-        {
-            return OperationResult.Error<(short[], string)>(
-                $"产品({code})需拆位置({data.Locations})无效：要求已知且成对的L/J位置。", 9999);
-        }
-
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
         var caves = new short[8];
-        foreach (var location in lga)
+        for (var index = 0; index < Positions.Length; index++)
         {
-            caves[Array.IndexOf(Positions, location)] = 1;
+            if (locations.Contains($"L{Positions[index]}") && locations.Contains($"J{Positions[index]}"))
+            {
+                caves[index] = 1;
+            }
         }
 
         return OperationResult.Success((caves, data.Locations));

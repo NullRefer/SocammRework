@@ -10,6 +10,7 @@
 - 地址按工站存于 `Models/Pto`。曲线为同一模型的两套地址，仅本地文件存储，不回写或清零 PLC；拆螺丝扫码及 D168 结果触发统一由框架 Runtime 在交互执行完成后清零，不区分业务成功或失败。
 - 设备通过 `IDeviceFactory` 和 `DeviceIds` 获取。禁止重新引入 IPlcFactory、ITmSocketFactory 或业务层品牌连接、自动重连。
 - Vanguard 驱动在独立 Communication 实现项目中，实现 `ITighteningDevice`，生命周期遵守框架 Device 接入手册。
+- SFC 上料确认不判断 rc，按响应 GROUP 列表与允许站点匹配；八穴仅在同号 L/J 位置同时出现时置为需拆，空位置或不成对位置视为不需拆；八穴均不需拆时上料反馈 NG，提示没有穴位需要拆，不建档。
 - SFC 请求/响应模型仅声明字段及 JSON 名称。`INvdSfcService` 负责请求组装、响应判定、站点校验与穴位解析，仅向调用方返回业务 `OperationResult`，Flow 和页面不直接判断 SFC 字段。
 - 配置使用 `IConfigService`；品牌、IP、端口在框架设备管理配置。不要在 Flow 或业务配置页重复提供设备连接参数。
 - 仅使用 `flow` 主表，软删表示下线；报表包含软删记录。禁止历史表和业务归档搬移。

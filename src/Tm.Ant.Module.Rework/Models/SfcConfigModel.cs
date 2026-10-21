@@ -3,7 +3,7 @@
 /// <summary>
 /// 本机 SFC 接口参数，使用框架配置管理持久化。
 /// </summary>
-[LocalOptionConfig("ReworkSfc", "重工线SFC", "查询需拆穴位、PASS过站参数")]
+[LocalOptionConfig("ReworkSfc", "重工线SFC", "上料确认、PASS过站参数")]
 public sealed class SfcConfigModel : IConfigNormalizer<SfcConfigModel>, IConfigValidator
 {
     public string Emp { get; set; } = "";

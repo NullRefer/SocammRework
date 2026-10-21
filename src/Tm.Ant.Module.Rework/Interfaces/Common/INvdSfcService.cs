@@ -6,9 +6,9 @@
 public interface INvdSfcService : ISingleton
 {
     /// <summary>
-    /// 确认上料站点并解析需拆穴位，成功时返回八穴标记和原始位置；屏蔽时使用模拟标记。
+    /// 执行SFC上料确认，按站点和成对L/J位置返回八穴标记；无位置或不成对的穴位不拆，屏蔽时使用模拟标记。
     /// </summary>
-    Task<OperationResult<(short[] Caves, string Locations)>> GetCavesAsync(string code,
+    Task<OperationResult<(short[] Caves, string Locations)>> CheckAsync(string code,
         CancellationToken token = default);
 
     /// <summary>

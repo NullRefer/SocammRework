@@ -28,8 +28,8 @@ Shell 配置结构与 Lpu4223 一致：
 - 设备 ID：`MainPlc`、`ProductScanner1`；拆螺丝机另有 `Tightening1`、`Tightening2`。
 - Vanguard subtype：`VanguardVLib`，接口为 `ITighteningDevice`，两把工具 ToolNo 分别为 1、2。
 - 首次配置完成后重新启动 FlowJob 或软件，完成设备检查和订阅。
-- SFC 参数使用 `ReworkSfc` 本机配置，由框架配置管理自动生成管理页面并统一编辑；查询地址属性为 `CheckUrl`，过站地址为 `RecordUrl`。已有配置需将旧键 `ReworkUrl` 改为 `CheckUrl`；屏蔽开关使用共享字典 key `Shield`。
-- Shield 仅保留 SFC 开关；关闭 SFC 后，在上料机首页屏蔽区域勾选 1–8 穴位并点击“应用需拆穴位”，后续上料使用已应用的标记。选择仅在当前进程内保留，重启后默认八穴均不选；零需拆集合下料判 NG。
+- SFC 参数使用 `ReworkSfc` 本机配置，由框架配置管理自动生成管理页面并统一编辑；上料确认地址属性为 `CheckUrl`，过站地址为 `RecordUrl`。已有配置需将旧键 `ReworkUrl` 改为 `CheckUrl`；屏蔽开关使用共享字典 key `Shield`。
+- Shield 仅保留 SFC 开关；关闭 SFC 后，在上料机首页屏蔽区域勾选 1–8 穴位并点击“应用需拆穴位”，后续上料使用已应用的标记。选择仅在当前进程内保留，重启后默认八穴均不选；一个穴位都未选择或未匹配到需拆穴位时，上料反馈 NG 并提示“没有穴位需要拆”，不建档。
 
 ## 数据库脚本
 
@@ -56,6 +56,6 @@ Shell 配置结构与 Lpu4223 一致：
 - `doc/Socamm重工线-PLC通讯协议.xlsx`：业务 PLC 协议。
 - `doc/VLib设备接入.md`：设备生命周期、寄存器与参数。
 - `doc/重构验证记录.md`：验证范围和环境限制。
-- `Models/SFC/Check.cs`：需拆查询请求与响应（CheckRequest / CheckResponse）；`StationRecord.cs`：普通过站请求与响应，均为独立模型，不使用继承。
+- `Models/SFC/Check.cs`：上料确认请求与响应（CheckRequest / CheckResponse）；`StationRecord.cs`：普通过站请求与响应，均为独立模型，不使用继承。
 
 core 3.2.0 的传递依赖存在 NuGet 审计告警（ImageSharp、SQLitePCLRaw），本次保持指定版本。

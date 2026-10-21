@@ -4,7 +4,7 @@ using Tm.Ant.Module.Rework.Models.Pto;
 namespace Tm.Ant.Module.Rework.Flows;
 
 /// <summary>
-/// 上料扫码、SFC确认与建档，清零由框架Runtime在结果反馈之后执行。
+/// 上料扫码、SFC上料确认与建档，清零由框架Runtime在结果反馈之后执行。
 /// </summary>
 internal sealed class LDFlow : IFlowBase
 {
@@ -48,11 +48,17 @@ internal sealed class LDFlow : IFlowBase
             return OperationResult.Error($"上料扫码失败：{scan.Message}", scan.Code);
         }
 
-        var response = await _nvdSfcService.GetCavesAsync(scan.Data, token);
+        var response = await _nvdSfcService.CheckAsync(scan.Data, token);
         if (!response.IsSuccess)
         {
             await _io.WriteAsync(address.Feedback, (short)2, token);
-            return OperationResult.Error($"上料SFC查询失败，产品({scan.Data})：{response.Message}", response.Code);
+            return OperationResult.Error($"SFC上料确认失败，产品({scan.Data})：{response.Message}", response.Code);
+        }
+
+        if (!response.Data.Caves.Contains((short)1))
+        {
+            await _io.WriteAsync(address.Feedback, (short)2, token);
+            return OperationResult.Error($"上料确认失败，产品({scan.Data})：没有穴位需要拆。");
         }
 
         var saved = await _productService.AddFlowAsync(scan.Data, response.Data.Caves, response.Data.Locations, token);
