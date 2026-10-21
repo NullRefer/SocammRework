@@ -14,9 +14,7 @@ public sealed class LoadConfirmRequest
 /// </summary>
 public sealed class LoadConfirmResponse
 {
-    public bool IsSuccess => Rc == 0;
-
-    [JsonProperty("rc", Required = Required.Always)]
+    [JsonProperty("rc")]
     public int Rc { get; set; }
 
     [JsonProperty("Error Description")]
@@ -30,9 +28,4 @@ public sealed class LoadConfirmResponse
 
     [JsonProperty("GROUP")]
     public string Group { get; set; }
-
-    /// <summary>
-    /// 软件由需拆位置解析的八穴标记，不属于 SFC 响应字段。
-    /// </summary>
-    public short[] DoCaves { get; set; } = new short[] { 0, 0, 0, 0, 0, 0, 0, 0 };
 }

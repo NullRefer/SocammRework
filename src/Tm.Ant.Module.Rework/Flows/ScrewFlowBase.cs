@@ -15,19 +15,17 @@ internal abstract class ScrewFlowBase : IFlowBase
     private readonly IFlowIoService _io;
     private readonly IProductService _products;
     private readonly IScrewCurveProvider _curves;
-    private readonly IEventBus _events;
     private readonly IDeviceFactory _devices;
     private readonly ILogger _logger;
     private readonly ScrewAddress _address = new();
 
     protected ScrewFlowBase(IFlowRuntimeService runtime, IFlowIoService io, IProductService products,
-        IScrewCurveProvider curves, IEventBus events, IDeviceFactory devices, ILogger logger)
+        IScrewCurveProvider curves, IDeviceFactory devices, ILogger logger)
     {
         _runtime = runtime;
         _io = io;
         _products = products;
         _curves = curves;
-        _events = events;
         _devices = devices;
         _logger = logger;
     }
@@ -171,7 +169,7 @@ internal abstract class ScrewFlowBase : IFlowBase
                     continue;
                 }
 
-                var item = new ScrewCurveEvent
+                var item = new ScrewCurveData
                 {
                     ProductCode = code,
                     Cave = cave,
@@ -185,14 +183,13 @@ internal abstract class ScrewFlowBase : IFlowBase
                     }
                 };
                 await _curves.SetCurveAsync(item, token);
-                _events.Publish(item);
                 _logger.LogInformationToUI("本地曲线保存完成，产品({Code})，穴位({Cave})，螺丝({Screw})，螺丝批({Tool})，点数({Count})",
                     LogCategory.Comm, code, cave, screw.Number, toolNo, curve.Torques.Count);
                 return;
             }
         }
 
-        var unassociated = new ScrewCurveEvent
+        var unassociated = new ScrewCurveData
         {
             ProductCode = "UNMATCHED",
             Cave = 0,

@@ -1,5 +1,4 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
-using Tm.Ant.Module.Rework.Models.SFC;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
 
@@ -18,10 +17,10 @@ public partial class ManualPassViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private string _productCode;
+    public partial string ProductCode { get; set; }
 
     [ObservableProperty]
-    private string _message;
+    public partial string Message { get; set; }
 
     [RelayCommand]
     public async Task Pass()
@@ -40,17 +39,12 @@ public partial class ManualPassViewModel : ObservableObject
 
         try
         {
-            var result = await _sfcService.StationRecordAsync(new StationRecordRequest
-            {
-                Sn = ProductCode.Trim(),
-                ErrorCode = "N/A",
-                Result = "PASS"
-            });
+            var result = await _sfcService.StationRecordAsync(ProductCode.Trim());
             Message = result.ToJson();
 
             if (!result.IsSuccess)
             {
-                _dialogService.ShowError($"手动过站失败：{result.Result}");
+                _dialogService.ShowError($"手动过站失败：{result.Message}");
                 return;
             }
 

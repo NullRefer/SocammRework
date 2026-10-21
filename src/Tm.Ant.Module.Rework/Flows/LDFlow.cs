@@ -55,10 +55,10 @@ internal sealed class LDFlow : IFlowBase
             {
                 await _io.WriteAsync(address.ProductCode, new string('\0', Consts.PRODUCTCODELEN), token);
                 await _io.WriteAsync(address.Feedback, (short)2, token);
-                return OperationResult.Error($"上料SFC查询失败，产品({scan.Data})：{response.Result}", response.Rc);
+                return OperationResult.Error($"上料SFC查询失败，产品({scan.Data})：{response.Message}", response.Code);
             }
 
-            var saved = await _products.AddFlowAsync(scan.Data, response.DoCaves, response.Locations, token);
+            var saved = await _products.AddFlowAsync(scan.Data, response.Data.Caves, response.Data.Locations, token);
             if (!saved.IsSuccess)
             {
                 await _io.WriteAsync(address.ProductCode, new string('\0', Consts.PRODUCTCODELEN), token);
@@ -69,7 +69,7 @@ internal sealed class LDFlow : IFlowBase
             await _io.WriteAsync(address.ProductCode, scan.Data, token);
             await _io.WriteAsync(address.Feedback, (short)1, token);
             _logger.LogInformationToUI("上料完成，产品({Code})，SFC位置({Locations})，需拆({Caves})，建档ID({Id})",
-                LogCategory.Comm, scan.Data, response.Locations, saved.Data.UnScrewCaves, saved.Data.Id);
+                LogCategory.Comm, scan.Data, response.Data.Locations, saved.Data.UnScrewCaves, saved.Data.Id);
             return OperationResult.Success();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)

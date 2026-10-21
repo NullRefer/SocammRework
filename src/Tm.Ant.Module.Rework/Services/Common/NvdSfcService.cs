@@ -18,18 +18,19 @@ internal sealed class NvdSfcService : INvdSfcService
         _shield = shield;
     }
 
-    public async Task<LoadConfirmResponse> GetCavesAsync(string code, CancellationToken token = default)
+    public async Task<OperationResult<(short[] Caves, string Locations)>> GetCavesAsync(string code,
+        CancellationToken token = default)
     {
         var switches = await _shield.GetShieldAsync(token);
         if (!switches.Sfc)
         {
-            return new LoadConfirmResponse { DoCaves = FlowDictKeys.TestCaves.ToArray() };
+            return OperationResult.Success<(short[], string)>((FlowDictKeys.TestCaves.ToArray(), null));
         }
 
         var config = await _configs.GetAsync<SfcConfigModel>(token);
         if (string.IsNullOrWhiteSpace(config.ReworkUrl))
         {
-            return new LoadConfirmResponse { Rc = 9999, Result = "SFC需拆查询地址未配置。" };
+            return OperationResult.Error<(short[], string)>("SFC需拆查询地址未配置。", 9999);
         }
 
         var response = await _http.PostJsonAsync(
@@ -37,11 +38,8 @@ internal sealed class NvdSfcService : INvdSfcService
         if (!response.IsSuccess)
         {
             token.ThrowIfCancellationRequested();
-            return new LoadConfirmResponse
-            {
-                Rc = response.Code == 0 ? 9999 : response.Code,
-                Result = response.Message
-            };
+            return OperationResult.Error<(short[], string)>($"SFC需拆查询请求失败：{response.Message}",
+                response.Code == 0 ? 9999 : response.Code);
         }
 
         LoadConfirmResponse data;
@@ -51,78 +49,95 @@ internal sealed class NvdSfcService : INvdSfcService
         }
         catch (JsonException ex)
         {
-            return new LoadConfirmResponse { Rc = 9999, Result = $"SFC需拆响应解析失败：{ex.Message}" };
+            return OperationResult.Error<(short[], string)>($"SFC需拆响应解析失败：{ex.Message}", 9999);
         }
 
         if (data == null)
         {
-            return new LoadConfirmResponse { Rc = 9999, Result = "SFC需拆响应为空。" };
+            return OperationResult.Error<(short[], string)>("SFC需拆响应为空。", 9999);
         }
 
-        if (!data.IsSuccess)
+        if (data.Rc != 0)
         {
-            return data;
+            return OperationResult.Error<(short[], string)>($"SFC上料确认失败，产品({code})：{data.Result}", data.Rc);
         }
 
         var groups = config.Group.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (!groups.Contains(data.Group))
         {
-            return new LoadConfirmResponse { Rc = 9999, Result = $"产品({code})站点({data.Group})不属于配置站点({config.Group})。" };
+            return OperationResult.Error<(short[], string)>(
+                $"产品({code})站点({data.Group})不属于配置站点({config.Group})。", 9999);
         }
 
-        var locations = (data.Locations ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var locations = (data.Locations ?? "").Split(',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var lga = locations.Where(value => value.StartsWith('L')).Select(value => value[1..]).Order().ToArray();
         var socamm = locations.Where(value => value.StartsWith('J')).Select(value => value[1..]).Order().ToArray();
         if (lga.Length == 0 || !lga.SequenceEqual(socamm) || lga.Any(value => !Positions.Contains(value)))
         {
-            return new LoadConfirmResponse { Rc = 9999, Result = $"产品({code})需拆位置({data.Locations})无效：要求已知且成对的L/J位置。" };
+            return OperationResult.Error<(short[], string)>(
+                $"产品({code})需拆位置({data.Locations})无效：要求已知且成对的L/J位置。", 9999);
         }
 
-        data.DoCaves = new short[8];
+        var caves = new short[8];
         foreach (var location in lga)
         {
-            data.DoCaves[Array.IndexOf(Positions, location)] = 1;
+            caves[Array.IndexOf(Positions, location)] = 1;
         }
 
-        return data;
+        return OperationResult.Success((caves, data.Locations));
     }
 
-    public async Task<StationRecordResponse> StationRecordAsync(StationRecordRequest request,
-        CancellationToken token = default)
+    public async Task<OperationResult> StationRecordAsync(string code, CancellationToken token = default)
     {
         var switches = await _shield.GetShieldAsync(token);
         if (!switches.Sfc)
         {
-            return new StationRecordResponse();
+            return OperationResult.Success("SFC过站已屏蔽，模拟成功。");
         }
 
         var config = await _configs.GetAsync<SfcConfigModel>(token);
         if (string.IsNullOrWhiteSpace(config.RecordUrl))
         {
-            return new StationRecordResponse { Rc = 9999, Result = "SFC过站接口地址未配置。" };
+            return OperationResult.Error("SFC过站接口地址未配置。", 9999);
         }
 
-        request.Emp = config.Emp;
-        request.MachineCode = config.MachineCode;
+        var request = new StationRecordRequest
+        {
+            Sn = code,
+            Result = "PASS",
+            ErrorCode = "N/A",
+            Emp = config.Emp,
+            MachineCode = config.MachineCode
+        };
         var response = await _http.PostJsonAsync(config.RecordUrl, request, LogCategory.SFC, token);
         if (!response.IsSuccess)
         {
             token.ThrowIfCancellationRequested();
-            return new StationRecordResponse
-            {
-                Rc = response.Code == 0 ? 9999 : response.Code,
-                Result = response.Message
-            };
+            return OperationResult.Error($"SFC过站请求失败：{response.Message}",
+                response.Code == 0 ? 9999 : response.Code);
         }
 
+        StationRecordResponse data;
         try
         {
-            return JsonConvert.DeserializeObject<StationRecordResponse>(response.Data)
-                ?? new StationRecordResponse { Rc = 9999, Result = "SFC过站响应为空。" };
+            data = JsonConvert.DeserializeObject<StationRecordResponse>(response.Data);
         }
         catch (JsonException ex)
         {
-            return new StationRecordResponse { Rc = 9999, Result = $"SFC过站响应解析失败：{ex.Message}" };
+            return OperationResult.Error($"SFC过站响应解析失败：{ex.Message}", 9999);
         }
+
+        if (data == null)
+        {
+            return OperationResult.Error("SFC过站响应为空。", 9999);
+        }
+
+        if (data.Rc != 0)
+        {
+            return OperationResult.Error($"SFC过站确认失败，产品({code})：{data.Result}", data.Rc);
+        }
+
+        return OperationResult.Success(data.Result ?? "SFC过站成功。");
     }
 }

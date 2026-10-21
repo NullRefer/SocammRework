@@ -1,6 +1,6 @@
 # SocammRework
 
-Socamm 重工线，基于 .NET 10 / tm.ant.core 3.2.0。包含上料、两台同协议拆螺丝机、下料、主表报表、本地曲线查询、SFC 配置及手动过站。
+Socamm 重工线，基于 .NET 10 / tm.ant.core 3.2.0。包含上料、两台同协议拆螺丝机、下料、主表报表、本地曲线保存、SFC 配置及手动过站。
 
 ## 构建
 
@@ -28,7 +28,7 @@ Shell 配置结构与 Lpu4223 一致：
 - 设备 ID：`MainPlc`、`ProductScanner1`；拆螺丝机另有 `Tightening1`、`Tightening2`。
 - Vanguard subtype：`VanguardVLib`，接口为 `ITighteningDevice`，两把工具 ToolNo 分别为 1、2。
 - 首次配置完成后重新启动 FlowJob 或软件，完成设备检查和订阅。
-- SFC 参数使用 `ReworkSfc` 本机配置，可通过“重工线SFC”或框架配置管理编辑；屏蔽开关使用共享字典 key `Shield`。
+- SFC 参数使用 `ReworkSfc` 本机配置，由框架配置管理自动生成管理页面并统一编辑；屏蔽开关使用共享字典 key `Shield`。
 - 屏蔽 SFC 时使用选择的模拟需拆穴位；默认八穴均不选，零需拆集合下料判 NG。
 
 ## 数据库脚本
@@ -44,9 +44,11 @@ Shell 配置结构与 Lpu4223 一致：
 
 仅使用 flow 主表，软删表示下线，报表包含软删记录。旧 `ReworkOption.Sfc` 参数迁入框架管理的 `ReworkSfc`；旧设备参数迁入设备管理。
 
-曲线默认保存在部署目录 `Data/screw/日期/`，可用 `ReworkCurveDirectory` 指向原目录；支持旧 JSON 字段和日期/产品码查询。
+曲线仅保存本地文件：通过 `IConfiguration.GetDataDirectory()` 获取数据根目录，保存到 `screw/yyyy-MM/`（例如 `screw/2026-10/`）。文件名包含完整日期时间，内容沿用原 JSON 字段；不提供曲线展示、缓存或历史查询。
 
 交互逻辑直接位于 `LDFlow`、`ScrewFlowBase`、`UldFlow`，不额外设置工站 FlowService；基础 IO、产品数据、SFC 服务仍独立。两台拆螺丝机共用 `ScrewFlowBase`。
+
+业务页面统一位于 Home：首页下可进入手动过站、产品报表，下料机另有拆除结果；上料屏蔽控件仍显示在首页区域。
 
 ## 文档与模型
 

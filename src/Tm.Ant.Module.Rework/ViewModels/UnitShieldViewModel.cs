@@ -7,7 +7,10 @@ public partial class UnitShieldViewModel : ObservableObject
     private readonly IShieldProvider _shields;
     private readonly IDialogService _dialogs;
     private readonly Task _loading;
-    [ObservableProperty] private bool _sfcEnabled;
+
+    [ObservableProperty]
+    public partial bool SfcEnabled { get; set; }
+
     public ObservableCollection<TestCaveItem> TestCaves { get; } = new();
 
     public UnitShieldViewModel(IShieldProvider shields, IDialogService dialogs)
@@ -67,5 +70,7 @@ public partial class TestCaveItem : ObservableObject
     }
 
     public int Number { get; }
-    [ObservableProperty] private bool _selected;
+
+    [ObservableProperty]
+    public partial bool Selected { get; set; }
 }

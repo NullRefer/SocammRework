@@ -26,9 +26,7 @@ public sealed class StationRecordRequest
 /// </summary>
 public sealed class StationRecordResponse
 {
-    public bool IsSuccess => Rc == 0;
-
-    [JsonProperty("rc", Required = Required.Always)]
+    [JsonProperty("rc")]
     public int Rc { get; set; }
 
     [JsonProperty("Error_Description")]

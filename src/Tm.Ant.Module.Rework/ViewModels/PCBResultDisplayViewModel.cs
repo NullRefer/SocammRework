@@ -10,9 +10,15 @@ public partial class PCBResultDisplayViewModel : ObservableObject, INavigationAw
     private readonly IEventBus _events;
     private readonly IFlowResultState _state;
     private FlowEventPubSub _subscription;
-    [ObservableProperty] private string _productCode = "";
-    [ObservableProperty] private string _totalResult = "";
-    [ObservableProperty] private ObservableCollection<CaveMarker> _markers = new();
+
+    [ObservableProperty]
+    public partial string ProductCode { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string TotalResult { get; set; } = "";
+
+    [ObservableProperty]
+    public partial ObservableCollection<CaveMarker> Markers { get; set; } = new();
 
     public PCBResultDisplayViewModel(IEventBus events, IFlowResultState state)
     {

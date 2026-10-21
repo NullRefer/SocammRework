@@ -13,8 +13,7 @@
             <TextBox Text="{Binding ProductCode}" MinWidth="200" Margin="5" />
             <Button
                 Content="查询"
-                Command="{Binding QueryDataCommand}"
-                IsEnabled="{Binding IsBusy, Converter={x:Static tm:CommonConverters.Boolean2BooleanReConverter}}" />
+                Command="{Binding QueryDataCommand}" />
         </WrapPanel>
         <tm:TmPagination DockPanel.Dock="Bottom" Pagination="{Binding Pagination}" />
         <DataGrid ItemsSource="{Binding Pagination.Rows}" AutoGenerateColumns="False" IsReadOnly="True">

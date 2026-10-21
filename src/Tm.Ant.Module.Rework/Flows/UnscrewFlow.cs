@@ -6,8 +6,8 @@ namespace Tm.Ant.Module.Rework.Flows;
 internal sealed class UnscrewFlow1 : ScrewFlowBase
 {
     public UnscrewFlow1(IFlowRuntimeService runtime, IFlowIoService io, IProductService products,
-        IScrewCurveProvider curves, IEventBus events, IDeviceFactory devices, ILogger<UnscrewFlow1> logger)
-        : base(runtime, io, products, curves, events, devices, logger)
+        IScrewCurveProvider curves, IDeviceFactory devices, ILogger<UnscrewFlow1> logger)
+        : base(runtime, io, products, curves, devices, logger)
     {
     }
 
@@ -17,8 +17,8 @@ internal sealed class UnscrewFlow1 : ScrewFlowBase
 internal sealed class UnscrewFlow2 : ScrewFlowBase
 {
     public UnscrewFlow2(IFlowRuntimeService runtime, IFlowIoService io, IProductService products,
-        IScrewCurveProvider curves, IEventBus events, IDeviceFactory devices, ILogger<UnscrewFlow2> logger)
-        : base(runtime, io, products, curves, events, devices, logger)
+        IScrewCurveProvider curves, IDeviceFactory devices, ILogger<UnscrewFlow2> logger)
+        : base(runtime, io, products, curves, devices, logger)
     {
     }
 

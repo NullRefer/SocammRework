@@ -1,6 +1,5 @@
 ﻿using Tm.Ant.Module.Rework.Interfaces.Common;
 using Tm.Ant.Module.Rework.Models.Pto;
-using Tm.Ant.Module.Rework.Models.SFC;
 using Tm.Ant.Module.Rework.Provider;
 
 namespace Tm.Ant.Module.Rework.Flows;
@@ -74,16 +73,11 @@ internal sealed class UldFlow : IFlowBase
             var sfcDescription = "质量NG，未上传PASS";
             if (isOk)
             {
-                var pass = await _sfc.StationRecordAsync(new StationRecordRequest
-                {
-                    Sn = scan.Data,
-                    Result = "PASS",
-                    ErrorCode = "N/A"
-                }, token);
+                var pass = await _sfc.StationRecordAsync(scan.Data, token);
                 if (!pass.IsSuccess)
                 {
                     await _io.WriteAsync(address.Feedback, (short)2, token);
-                    return OperationResult.Error($"下料SFC过站失败，产品({scan.Data})：{pass.Result}", pass.Rc);
+                    return OperationResult.Error($"下料SFC过站失败，产品({scan.Data})：{pass.Message}", pass.Code);
                 }
 
                 sfcDescription = "PASS接口处理成功（屏蔽时模拟成功）";

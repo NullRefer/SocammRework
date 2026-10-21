@@ -10,6 +10,7 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
     private readonly IDialogService _dialogs;
     private readonly ILogger _logger;
     private CancellationTokenSource _session;
+    private CancellationTokenSource _queryCancellation;
     private Task _loading = Task.CompletedTask;
 
     public ReportViewModel(IProductQueryService query, IDialogService dialogs, ILogger<ReportViewModel> logger)
@@ -17,23 +18,23 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
         _query = query;
         _dialogs = dialogs;
         _logger = logger;
-        Pagination.OnPageChanged = _ => LoadAsync();
+        Pagination.OnPageChanged = _ => _loading = LoadAsync();
     }
 
-    [ObservableProperty] private DateTime _selectDate = DateTime.Today;
-    [ObservableProperty] private DateTime _endDate = DateTime.Today;
-    [ObservableProperty] private string _productCode = "";
-    [ObservableProperty] private bool _isBusy;
+    [ObservableProperty]
+    public partial DateTime SelectDate { get; set; } = DateTime.Today;
+
+    [ObservableProperty]
+    public partial DateTime EndDate { get; set; } = DateTime.Today;
+
+    [ObservableProperty]
+    public partial string ProductCode { get; set; } = "";
+
     public PaginationVo<FlowMain> Pagination { get; } = new() { PageSize = 50 };
 
     [RelayCommand]
     private async Task QueryDataAsync()
     {
-        if (IsBusy)
-        {
-            return;
-        }
-
         Pagination.PageIndex = 1;
         _loading = LoadAsync();
         await _loading;
@@ -41,7 +42,7 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
 
     private async Task LoadAsync()
     {
-        if (IsBusy || _session == null || _session.IsCancellationRequested)
+        if (_session == null || _session.IsCancellationRequested)
         {
             return;
         }
@@ -52,12 +53,15 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
             return;
         }
 
-        var token = _session.Token;
-        IsBusy = true;
+        _queryCancellation?.Cancel();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_session.Token);
+        _queryCancellation = cancellation;
+        var token = cancellation.Token;
         try
         {
-            var result = await _query.QueryAsync(SelectDate.Date, EndDate.Date.AddDays(1), ProductCode,
-                Pagination.PageIndex, Pagination.PageSize, token);
+            var request = new ProductQueryRequest(Pagination.PageIndex, Pagination.PageSize, ProductCode,
+                SelectDate.Date, EndDate.Date.AddDays(1));
+            var result = await _query.QueryAsync(request, token);
             if (!token.IsCancellationRequested)
             {
                 Pagination.UpdateFromPagedResultDto(result);
@@ -68,12 +72,20 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
         }
         catch (Exception ex)
         {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
             _logger.LogError(ex, "产品报表查询失败");
             _dialogs.ShowError($"产品报表查询失败：{ex.Message}");
         }
         finally
         {
-            IsBusy = false;
+            if (ReferenceEquals(_queryCancellation, cancellation))
+            {
+                _queryCancellation = null;
+            }
         }
     }
 

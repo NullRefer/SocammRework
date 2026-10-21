@@ -1,18 +1,18 @@
-﻿using Tm.Ant.Module.Rework.Models.SFC;
-
-namespace Tm.Ant.Module.Rework.Interfaces.Common;
+﻿namespace Tm.Ant.Module.Rework.Interfaces.Common;
 
 /// <summary>
-/// 查询SFC需拆位置和上传PASS过站，保留原接口报文。
+/// 封装SFC接口调用、响应判定与位置解析，调用方只消费业务操作结果。
 /// </summary>
 public interface INvdSfcService : ISingleton
 {
     /// <summary>
-    /// 请求并校验SFC位置，返回八穴标记；屏蔽时使用模拟标记。
+    /// 确认上料站点并解析需拆穴位，成功时返回八穴标记和原始位置；屏蔽时使用模拟标记。
     /// </summary>
-    Task<LoadConfirmResponse> GetCavesAsync(string code, CancellationToken token = default);
+    Task<OperationResult<(short[] Caves, string Locations)>> GetCavesAsync(string code,
+        CancellationToken token = default);
+
     /// <summary>
-    /// 上传SFC过站报文，屏蔽时返回模拟成功；保留接口失败原因。
+    /// 为产品上传PASS过站，封装请求字段与响应判定；屏蔽时返回模拟成功。
     /// </summary>
-    Task<StationRecordResponse> StationRecordAsync(StationRecordRequest request, CancellationToken token = default);
+    Task<OperationResult> StationRecordAsync(string code, CancellationToken token = default);
 }

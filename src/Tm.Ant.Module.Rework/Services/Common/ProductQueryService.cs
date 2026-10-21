@@ -12,16 +12,17 @@ internal sealed class ProductQueryService : IProductQueryService
         _repositories = repositories;
     }
 
-    public async Task<PagedResultDto<FlowMain>> QueryAsync(DateTime start, DateTime end, string code, int page,
-        int size, CancellationToken token)
+    public async Task<PagedResultDto<FlowMain>> QueryAsync(ProductQueryRequest request, CancellationToken token)
     {
         using var repo = _repositories.CreateRepository<FlowMain>();
-        var query = repo.GetAll().Where(item => item.CreateTime >= start && item.CreateTime < end);
-        if (!string.IsNullOrWhiteSpace(code))
+        var query = repo.GetAll()
+            .Where(item => item.CreateTime >= request.StartTime && item.CreateTime < request.EndTime);
+        if (!string.IsNullOrWhiteSpace(request.ProductCode))
         {
-            query = query.Where(item => item.ProductCode.Contains(code));
+            query = query.Where(item => item.ProductCode.Contains(request.ProductCode));
         }
 
-        return await query.OrderByDescending(item => item.Id).PagedQueryAsync(page, size, token);
+        return await query.OrderByDescending(item => item.Id)
+            .PagedQueryAsync(request.PageIndex, request.PageSize, token);
     }
 }
