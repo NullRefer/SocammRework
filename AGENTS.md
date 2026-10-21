@@ -7,7 +7,7 @@
 - `LDFlow`、`UldFlow` 直接实现 `IFlowBase`；两台拆螺丝机继续共用 `ScrewFlowBase`。各站业务交互直接在 Flow 中展开，不另设工站 FlowService 接口或实现；IO、数据库、SFC 等基础能力保留独立服务。
 - 拧紧枪的结果/曲线订阅和接收由独立 `ScrewReceiveJob` 管理，停止时成对退订；Flow 仅负责产品交互和 PLC 穴位最终结果，不依赖拧紧枪订阅生命周期。
 - 拧紧曲线仅保存本地文件，根目录取 `IConfiguration.GetDataDirectory()`，其下按 `screw/yyyy-MM/` 存储；不实现曲线 UI、展示事件、缓存或查询。
-- 地址按工站存于 `Models/Pto`。曲线为同一模型的两套地址，仅本地文件存储，不回写或清零 PLC；D168 保存主表成功后才清零。
+- 地址按工站存于 `Models/Pto`。曲线为同一模型的两套地址，仅本地文件存储，不回写或清零 PLC；拆螺丝扫码及 D168 结果触发统一由框架 Runtime 在交互执行完成后清零，不区分业务成功或失败。
 - 设备通过 `IDeviceFactory` 和 `DeviceIds` 获取。禁止重新引入 IPlcFactory、ITmSocketFactory 或业务层品牌连接、自动重连。
 - Vanguard 驱动在独立 Communication 实现项目中，实现 `ITighteningDevice`，生命周期遵守框架 Device 接入手册。
 - SFC 请求/响应模型仅声明字段及 JSON 名称。`INvdSfcService` 负责请求组装、响应判定、站点校验与穴位解析，仅向调用方返回业务 `OperationResult`，Flow 和页面不直接判断 SFC 字段。

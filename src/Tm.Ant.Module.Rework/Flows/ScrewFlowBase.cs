@@ -36,15 +36,9 @@ internal abstract class ScrewFlowBase : IFlowBase
             _runtime.CreatePollingTask(t => _runtime.RunOnTriggerAsync(DeviceIds.MainPlc,
                 "拆螺丝扫码下发", _address.Scan.Trigger,
                 ct => ScanAsync(_address.Scan, DeviceIds.ProductScanner, ct), t), "拆螺丝扫码", token),
-            _runtime.CreatePollingTask(async t =>
-            {
-                // Runtime的RunOnTrigger在失败后也清零；本交互仅允许保存成功才清零。
-                var result = await SaveResultAsync(_address.Result, t);
-                if (!result.IsSuccess)
-                {
-                    _logger.LogWarningToUI("穴位结果保存失败：{Reason}", LogCategory.ALARM, result.Message);
-                }
-            }, "穴位最终结果保存", token));
+            _runtime.CreatePollingTask(t => _runtime.RunOnTriggerValueAsync(DeviceIds.MainPlc,
+                "穴位最终结果保存", _address.Result.Trigger,
+                (value, ct) => SaveResultAsync(_address.Result, value, ct), t), "穴位最终结果保存", token));
     }
 
     private async Task<OperationResult> ScanAsync(ScrewAddress.ScanGroup address, string scannerId,
@@ -74,30 +68,23 @@ internal abstract class ScrewFlowBase : IFlowBase
         return OperationResult.Success();
     }
 
-    private async Task<OperationResult> SaveResultAsync(ScrewAddress.ResultGroup address, CancellationToken token)
+    private async Task<OperationResult> SaveResultAsync(ScrewAddress.ResultGroup address, short result,
+        CancellationToken token)
     {
-        var result = (await _io.ReadShortAsync(address.Trigger, token)).Data;
-        if (result == 0)
-        {
-            return OperationResult.Success();
-        }
-
-        _logger.LogInformationToUI("穴位结果触发，地址({Address})，值({Value})", LogCategory.Comm, address.Trigger, result);
         var code = (await _io.ReadCodeAsync(address.ProductCode, token)).Data;
         var cave = (await _io.ReadShortAsync(address.Cave, token)).Data;
         if (string.IsNullOrWhiteSpace(code))
         {
-            return OperationResult.Error($"保存穴位结果失败，地址({address.ProductCode})：产品码为空，保留结果触发。");
+            return OperationResult.Error($"保存穴位结果失败，地址({address.ProductCode})：产品码为空。");
         }
 
         var saved = await _productService.UpdateFlowAsync(code, cave, result, token);
         if (!saved.IsSuccess)
         {
-            return OperationResult.Error($"保存穴位结果失败：{saved.Message}，保留结果触发。", saved.Code);
+            return OperationResult.Error($"保存穴位结果失败：{saved.Message}", saved.Code);
         }
 
-        await _io.WriteAsync(address.Trigger, (short)0, token);
-        _logger.LogInformationToUI("穴位拆除结果已保存，产品({Code})，穴位({Cave})，质量({Quality})，已执行清零响应",
+        _logger.LogInformationToUI("穴位拆除结果已保存，产品({Code})，穴位({Cave})，质量({Quality})",
             LogCategory.Comm, code, cave, result == 1 ? "OK" : "NG");
         return OperationResult.Success();
     }
