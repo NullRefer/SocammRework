@@ -71,7 +71,7 @@ internal abstract class ScrewFlowBase : IFlowBase
     private async Task<OperationResult> SaveResultAsync(ScrewAddress.ResultGroup address, short result,
         CancellationToken token)
     {
-        var code = (await _io.ReadCodeAsync(address.ProductCode, token)).Data;
+        var code = (await _io.ReadCodeAsync(address.ProductCode, Consts.PRODUCT_CODE_LEN, token)).Data;
         var cave = (await _io.ReadShortAsync(address.Cave, token)).Data;
         if (string.IsNullOrWhiteSpace(code))
         {

@@ -20,20 +20,22 @@ internal sealed class FlowIoService : IFlowIoService
         var response = await _devices.GetDeviceService<IScannerService>(scannerId).TriggerAsync(token);
         if (!response.IsSuccess)
         {
-            return OperationResult.Error<string>($"扫码枪({scannerId})触发失败：{response.Message}", response.Code);
+            var switches = await _configService.GetAsync<ShieldModel>(token);
+            if (switches.Sfc)
+            {
+                return OperationResult.Error<string>($"扫码枪({scannerId})触发失败：{response.Message}", response.Code);
+            }
+
+            var fakeCode = $"Fake-{DateTime.Now:yyyyMMddHHmmssfff}";
+            _logger.LogInformationToUI("扫码NG且SFC已屏蔽，设备({DeviceId})，使用模拟产品码({Code})",
+                LogCategory.Comm, scannerId, fakeCode);
+            return OperationResult.Success<string>(fakeCode);
         }
 
         var code = response.Data.TrimControlCharacters();
-        var switches = await _configService.GetAsync<ShieldModel>(token);
-        if (!switches.Sfc && code is "Err" or "ERR" or "ERROR" or "NG")
+        if (string.IsNullOrWhiteSpace(code))
         {
-            code = $"Fake-{DateTime.Now:yyyyMMddHHmmssfff}";
-        }
-
-        if (string.IsNullOrWhiteSpace(code) || code.Length > Consts.PRODUCTCODELEN
-            || code is "Err" or "ERR" or "ERROR" or "NG")
-        {
-            return OperationResult.Error<string>($"扫码枪({scannerId})条码校验失败：'{code}'，要求1~30字符的有效产品码。");
+            return OperationResult.Error<string>($"扫码枪({scannerId})条码校验失败：产品码为空。");
         }
 
         _logger.LogInformationToUI("扫码成功，设备({DeviceId})，产品码({Code})", LogCategory.Comm, scannerId, code);
@@ -46,11 +48,11 @@ internal sealed class FlowIoService : IFlowIoService
         return _devices.GetDeviceService<IPlcService>(DeviceIds.MainPlc).ReadInt16Async(address);
     }
 
-    public async Task<OperationResult<string>> ReadCodeAsync(string address, CancellationToken token)
+    public async Task<OperationResult<string>> ReadCodeAsync(string address, ushort length, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var result = await _devices.GetDeviceService<IPlcService>(DeviceIds.MainPlc)
-            .ReadStringAsync(address, Consts.PRODUCTCODELEN);
+            .ReadStringAsync(address, length);
         return result.IsSuccess ? OperationResult.Success<string>(result.Data.TrimControlCharacters()) : result;
     }
 

@@ -2,5 +2,5 @@
 
 internal static class Consts
 {
-    public const int PRODUCTCODELEN = 30;
+    public const int PRODUCT_CODE_LEN = 30;
 }

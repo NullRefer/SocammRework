@@ -8,6 +8,7 @@
 - 拧紧枪的结果/曲线订阅和接收由独立 `ScrewReceiveJob` 管理，停止时成对退订；Flow 仅负责产品交互和 PLC 穴位最终结果，不依赖拧紧枪订阅生命周期。
 - 拧紧曲线仅保存本地文件，根目录取 `IConfiguration.GetDataDirectory()`，其下按 `screw/yyyy-MM/` 存储；不实现曲线 UI、展示事件、缓存或查询。
 - 地址按工站存于 `Models/Pto`。曲线为同一模型的两套地址，仅本地文件存储，不回写或清零 PLC；拆螺丝扫码及 D168 结果触发统一由框架 Runtime 在交互执行完成后清零，不区分业务成功或失败。
+- IO 扫码不校验产品码长度，不按成功文本判断 Err/NG；仅扫码结果失败且 SFC 屏蔽时生成 Fake 码。PLC 字符串读取长度由调用方显式传入，当前均为30。
 - 设备通过 `IDeviceFactory` 和 `DeviceIds` 获取。禁止重新引入 IPlcFactory、ITmSocketFactory 或业务层品牌连接、自动重连。
 - Vanguard 驱动在独立 Communication 实现项目中，实现 `ITighteningDevice`，生命周期遵守框架 Device 接入手册。
 - SFC 上料确认不判断 rc，按响应 GROUP 列表与允许站点匹配；八穴仅在同号 L/J 位置同时出现时置为需拆，空位置或不成对位置视为不需拆；八穴均不需拆时上料反馈 NG，提示没有穴位需要拆，不建档。

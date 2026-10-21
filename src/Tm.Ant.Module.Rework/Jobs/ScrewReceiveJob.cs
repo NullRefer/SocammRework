@@ -115,7 +115,7 @@ internal sealed class ScrewReceiveJob : TmJobBase
                     continue;
                 }
 
-                var code = (await _io.ReadCodeAsync(group.ProductCode, token)).Data;
+                var code = (await _io.ReadCodeAsync(group.ProductCode, Consts.PRODUCT_CODE_LEN, token)).Data;
                 var cave = (await _io.ReadShortAsync(group.Cave, token)).Data;
                 var program = (await _io.ReadShortAsync(screw.Program, token)).Data;
                 if (string.IsNullOrWhiteSpace(code) || cave is < 1 or > 8)
