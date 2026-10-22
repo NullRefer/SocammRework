@@ -2,7 +2,7 @@
 
 ## 实现与注册
 
-实现项目：`src/Tm.Ant.Communication.Tightening.Vanguard`，目标框架 `net10.0`，引用 `Tm.Ant.Communication.Tightening.Abstractions 3.2.0`。
+实现项目：`src/Tm.Ant.Communication.Tightening.Vanguard`，目标框架 `net10.0`，引用 `Tm.Ant.Communication.Tightening.Abstractions 3.2.0`。Modbus TCP 使用框架传递提供的 HslCommunication 11.3.2，不再依赖 NModbus4，也不新增包或授权信息。
 
 `VanguardTighteningDevice` 实现 `ITighteningDevice`、`IDisposable`，通过 `DeviceServiceAttribute` 注册：
 
@@ -24,7 +24,7 @@ IP、Port、ToolNo、TimeoutMs 均在设备管理中编辑，不放在工站 Flo
 - `Configure` 停止旧采集任务和连接，复制配置，保留同一 service 实例及外部事件订阅。
 - `ConnectAsync` 建立一次 TCP/Modbus 连接并启动采集任务。没有永久自动重连线程。
 - `CheckConnectionAsync` 仅报告当前健康状态，不主动重连。
-- `DisconnectAsync` 取消采集、关闭 Socket、中断阻塞读、等待采集任务结束并释放 Modbus 资源；同一实例可重新连接。
+- `DisconnectAsync` 取消采集，等待在途读取完成或按 TimeoutMs 超时、已开始的采集回调结束，再关闭连接并释放 Modbus 资源（默认读取超时约1000ms）；同一实例可重新连接。
 - 连接失败和采集通信异常交由框架生命周期管理器按设备配置决定重连；没有业务层额外重连 Job。
 - 订阅者异常会记录，不导致通信设备被误判为断线；断开过程会等待已开始的回调结束，避免旧配置继续发布数据。
 
@@ -39,6 +39,8 @@ IP、Port、ToolNo、TimeoutMs 均在设备管理中编辑，不放在工站 Flo
 | 完成结果 | Read Input Registers | 0x31，6字 | 程序、圈数/10、扭矩/10、时间ms、结果码、原因码 |
 | 曲线长度 | Read Input Registers | 0x3F，1字 | 已生成样本数 |
 | 曲线数据 | Read Input Registers | 0x40起 | 每批最多120字，扭矩除以10；工作结束读取剩余样本 |
+
+站号固定为1，地址从0开始。工作状态使用 `194`（FC03），输入寄存器使用 `x=4;十进制地址`（FC04）。所有寄存器按无符号 UInt16 读取，检查通信结果和返回字数；首次失败立即结束采集并标记断线，不再读取，避免触发 Hsl 的后续请求自动重连。连接及接收超时均取 TimeoutMs；不使用会遗留后台 I/O 的取消包装。
 
 采集间隔沿用原 VLib 的10ms。只在忙碌到完成的转换时发布完成结果与完整曲线，不反复发布同一次结束状态。
 
@@ -57,3 +59,16 @@ IP、Port、ToolNo、TimeoutMs 均在设备管理中编辑，不放在工站 Flo
 数据库的穴位质量仍以 PLC 工位2的 D168 上传为准，不能从螺丝批回调、曲线文件数量或工具 IsOk 推断产品总质量。
 
 曲线仅作本地文件保存，目录为 `IConfiguration.GetDataDirectory()/screw/yyyy-MM/`；没有曲线展示事件、缓存或历史查询接口。
+
+## Hsl 替换验证（2026-10-22）
+
+未新增测试项目。临时控制台通过项目引用运行实际 Vanguard 驱动，仅连接本机回环模拟 Modbus TCP 端点，48 项断言通过：
+
+- FC03 / FC04、站号1、零基地址、只读请求；241点按120、120、1字读取，验证0、32768及65535边界、比例和曲线横坐标。
+- 结果就绪等待、最多10次等待后仍发布曲线、结果先于曲线、NG结果与曲线事件保留。
+- 对端断开、读取超时、Modbus异常响应、数据不足；工作状态、曲线长度、采样、结果就绪及结果读取首次失败后均不再请求，不自行重连；健康检查不发请求。
+- 阻塞读取期间停止：TimeoutMs=250时实测约251ms；等待已开始的回调完成；活动实例重新配置后旧端点不再收请求，新配置保留订阅，同实例断开后可再次连接。
+
+已执行方案要求的 restore、build、whitespace 和 diff 检查。构建0错误、18条既有传递依赖安全警告（ImageSharp、SQLitePCLRaw）。另向全新临时目录发布 win-x64、framework-dependent Shell，确认 HslCommunication.dll 和 Vanguard 驱动存在，发布文件及 deps.json 均不再包含 NModbus。
+
+模拟验证不代表 Windows 实机或现场验收；正式使用前仍需验证默认超时下的停止耗时、连续采样和既有 Hsl 授权的持续运行情况。

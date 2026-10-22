@@ -1,8 +1,6 @@
-﻿using System.Net.Sockets;
+﻿using HslCommunication.ModBus;
 
 using Microsoft.Extensions.Logging;
-
-using Modbus.Device;
 
 using Tm.Ant.Communication.Attributes;
 using Tm.Ant.Communication.Infra;
@@ -22,8 +20,7 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
     private VanguardTighteningDeviceConfig _config;
-    private TcpClient _client;
-    private ModbusIpMaster _master;
+    private ModbusTcpNet _modbus;
     private CancellationTokenSource _receiveCancellation;
     private Task _receiveTask = Task.CompletedTask;
     private volatile bool _connected;
@@ -36,7 +33,7 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
 
     public event Func<TighteningResult, Task> TighteningResultReceivedAsync;
     public event Func<TighteningCurve, Task> TighteningCurveReceivedAsync;
-    public bool IsConnected => !_disposed && _connected && _client?.Connected == true;
+    public bool IsConnected => !_disposed && _connected;
 
     public void Configure(object config)
     {
@@ -80,19 +77,21 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
                 return false;
             }
 
-            _master?.Dispose();
-            _client?.Dispose();
-            _receiveCancellation?.Dispose();
-            _client = new TcpClient();
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-            timeout.CancelAfter(_config.TimeoutMs);
-            await _client.ConnectAsync(_config.Ip, _config.Port, timeout.Token).ConfigureAwait(false);
-            _client.ReceiveTimeout = _config.TimeoutMs;
-            _client.SendTimeout = _config.TimeoutMs;
-            _master = ModbusIpMaster.CreateIp(_client);
-            _master.Transport.ReadTimeout = _config.TimeoutMs;
-            _master.Transport.WriteTimeout = _config.TimeoutMs;
-            _master.Transport.Retries = 0;
+            await StopReceiveAsync().ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            _modbus = new ModbusTcpNet(_config.Ip, _config.Port, 1)
+            {
+                AddressStartWithZero = true,
+                ConnectTimeOut = _config.TimeoutMs,
+                ReceiveTimeOut = _config.TimeoutMs
+            };
+            var connection = await _modbus.ConnectServerAsync().ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            if (!connection.IsSuccess)
+            {
+                throw new IOException($"VLib设备({_config.DeviceId})连接失败：{connection.ErrorCode}，{connection.Message}");
+            }
+
             _connected = true;
             _receiveCancellation = new CancellationTokenSource();
             var receiveToken = _receiveCancellation.Token;
@@ -102,8 +101,7 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
         catch
         {
             _connected = false;
-            _master?.Dispose();
-            _client?.Dispose();
+            await StopReceiveAsync().ConfigureAwait(false);
             throw;
         }
         finally
@@ -123,20 +121,43 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
         await _lifecycle.WaitAsync(token).ConfigureAwait(false);
         try
         {
-            _connected = false;
-            _receiveCancellation?.Cancel();
-            _client?.Dispose();
-            await _receiveTask.ConfigureAwait(false);
-            _master?.Dispose();
-            _master = null;
-            _client = null;
-            _receiveCancellation?.Dispose();
-            _receiveCancellation = null;
+            await StopReceiveAsync().ConfigureAwait(false);
         }
         finally
         {
             _lifecycle.Release();
         }
+    }
+
+    private async Task StopReceiveAsync()
+    {
+        _connected = false;
+        _receiveCancellation?.Cancel();
+        // Hsl读取不可取消，先等待超时退出，避免关闭与在途读取竞争导致内部重连。
+        await _receiveTask.ConfigureAwait(false);
+        _modbus?.ConnectClose();
+        _modbus?.Dispose();
+        _modbus = null;
+        _receiveTask = Task.CompletedTask;
+        _receiveCancellation?.Dispose();
+        _receiveCancellation = null;
+    }
+
+    private ushort[] ReadRegisters(string address, ushort count, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var result = _modbus.ReadUInt16(address, count);
+        if (!result.IsSuccess)
+        {
+            throw new IOException($"VLib设备({_config.DeviceId})读取({address})、字数({count})失败：{result.ErrorCode}，{result.Message}");
+        }
+
+        if (result.Content == null || result.Content.Length != count)
+        {
+            throw new InvalidDataException($"VLib设备({_config.DeviceId})读取({address})数据不足：预期{count}字，实际{result.Content?.Length ?? 0}字。");
+        }
+
+        return result.Content;
     }
 
     private async Task ReceiveAsync(CancellationToken token)
@@ -148,7 +169,7 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
         {
             while (!token.IsCancellationRequested)
             {
-                var currentBusy = (_master.ReadHoldingRegisters(1, 0xc2, 1)[0] & 2) != 0;
+                var currentBusy = (ReadRegisters("194", 1, token)[0] & 2) != 0;
                 if (currentBusy && !busy)
                 {
                     samplesRead = 0;
@@ -157,7 +178,7 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
 
                 if (currentBusy || busy)
                 {
-                    var length = _master.ReadInputRegisters(1, 0x3f, 1)[0];
+                    var length = ReadRegisters("x=4;63", 1, token)[0];
                     if (length < samplesRead || length > ushort.MaxValue - 0x40)
                     {
                         throw new InvalidDataException($"VLib曲线长度异常：{length}，已读取：{samplesRead}。");
@@ -167,7 +188,7 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
                     {
                         token.ThrowIfCancellationRequested();
                         var count = (ushort)Math.Min(120, length - samplesRead);
-                        var values = _master.ReadInputRegisters(1, (ushort)(0x40 + samplesRead), count);
+                        var values = ReadRegisters($"x=4;{(0x40 + samplesRead).ToString(System.Globalization.CultureInfo.InvariantCulture)}", count, token);
                         torques.AddRange(values.Select(value => value / 10f));
                         samplesRead += count;
                     }
@@ -224,9 +245,9 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
         for (var attempt = 0; attempt < 10; attempt++)
         {
             token.ThrowIfCancellationRequested();
-            if (_master.ReadInputRegisters(1, 0x30, 1)[0] == 1)
+            if (ReadRegisters("x=4;48", 1, token)[0] == 1)
             {
-                var values = _master.ReadInputRegisters(1, 0x31, 6);
+                var values = ReadRegisters("x=4;49", 6, token);
                 return new TighteningResult
                 {
                     DeviceId = _config.DeviceId,
