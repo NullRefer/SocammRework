@@ -13,16 +13,18 @@ internal sealed class UldFlow : IFlowBase
     private readonly IProductService _productService;
     private readonly INvdSfcService _nvdSfcService;
     private readonly ILogger<UldFlow> _logger;
+    private readonly IScrewDisplayService _screwDisplayService;
     private readonly UnloadAddress _address = new();
 
     public UldFlow(IFlowRuntimeService runtime, IFlowIoService io, IProductService productService,
-        INvdSfcService nvdSfcService, ILogger<UldFlow> logger)
+        INvdSfcService nvdSfcService, ILogger<UldFlow> logger, IScrewDisplayService screwDisplayService)
     {
         _runtime = runtime;
         _io = io;
         _productService = productService;
         _nvdSfcService = nvdSfcService;
         _logger = logger;
+        _screwDisplayService = screwDisplayService;
     }
 
     public string FlowName => "ULD";
@@ -56,6 +58,8 @@ internal sealed class UldFlow : IFlowBase
         }
 
         var results = entity.GetFinalResult();
+        var resultTime = DateTime.Now;
+        _screwDisplayService.Publish(scan.Data, resultTime, results);
         var isOk = results.Count > 0 && results.Values.All(value => value == "OK");
         var sfcDescription = "质量NG，未上传PASS";
         if (isOk)

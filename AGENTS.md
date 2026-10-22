@@ -16,6 +16,7 @@
 - 配置使用 `IConfigService`；品牌、IP、端口在框架设备管理配置。不要在 Flow 或业务配置页重复提供设备连接参数。
 - 仅使用 `flow` 主表，软删表示下线；报表包含软删记录。禁止历史表和业务归档搬移。
 - 使用中文业务日志，DB 变更、设备交互与工站汇总各负责自身记录。业务接口继承生命周期标记，由框架自动扫描。
+- 下料机 Home 的螺丝显示在 SFC 上传前发布产品最终结果，保留进程内最新一件；24点标定通过 IConfigService 本机配置保存，不复用旧矩形坐标，不显示未参与穴位标记。
 - 业务页面统一注册在 Home；.NET 10 的 CommunityToolkit.Mvvm 可观察状态使用 `[ObservableProperty] public partial` 属性，不使用标记字段。产品查询不设置 IsBusy，使用取消令牌处理查询替换与导航离开。
 - 服务注入参数和字段使用完整接口名去掉 I 后的驼峰命名，例如 `IProductService` 对应 `productService` 和 `_productService`；Runtime 和 IO 允许使用 `runtime` / `_runtime`、`io` / `_io`。
 - C# 四空格、Allman 花括号、UTF-8 BOM/CRLF；自动属性保持同行。公共业务契约与重要类型使用三行中文 summary。
