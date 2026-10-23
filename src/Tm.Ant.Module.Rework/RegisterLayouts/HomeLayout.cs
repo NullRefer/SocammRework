@@ -4,18 +4,14 @@ namespace Tm.Ant.Module.Rework.RegisterLayouts;
 
 public sealed class ReworkHomeLayout : HomeLayout
 {
-    private readonly IMachineConfigService _machineConfigService;
-
-    public ReworkHomeLayout(IServiceProvider services, IMachineConfigService machineConfigService)
-        : base(services)
+    public ReworkHomeLayout(IServiceProvider services) : base(services)
     {
-        _machineConfigService = machineConfigService;
     }
 
     protected override void RegisterLayouts()
     {
         base.RegisterLayouts();
-        if (_machineConfigService.GetCurrentMachine()?.FlowName == "ULD")
+        if (_serviceProvider.GetRequiredService<IConfiguration>().GetLocalConfigOption().FlowName == "ULD")
         {
             RegisterLeftRightLayout<ScrewDisplay>("螺丝显示");
         }

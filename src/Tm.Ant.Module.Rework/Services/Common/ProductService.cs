@@ -30,10 +30,7 @@ internal sealed class ProductService : IProductService
             Locations = locations ?? "",
             ResultJson = "[]"
         };
-        if (await repo.InsertAsync(entity, token) <= 0)
-        {
-            return OperationResult.Error<FlowMain>($"创建产品({code})失败：数据库未新增记录。");
-        }
+        await repo.InsertAsync(entity, token);
 
         _logger.LogInformation("新增生产记录，ID({Id})，产品({Code})，需拆({Caves})，位置({Locations})",
             entity.Id, code, entity.UnScrewCaves, entity.Locations);
@@ -63,10 +60,7 @@ internal sealed class ProductService : IProductService
         var results = entity.GetResults();
         results.Add(new ResultJsonItem { Cave = cave, Result = result == 1 ? "OK" : "NG" });
         entity.ResultJson = JsonConvert.SerializeObject(results);
-        if (await repo.UpdateAsync(entity, token) <= 0)
-        {
-            return OperationResult.Error($"保存拆除结果失败，产品({code})，穴位({cave})：数据库未更新记录。");
-        }
+        await repo.UpdateAsync(entity, token);
 
         _logger.LogInformation("更新生产记录，ID({Id})，产品({Code})，ResultJson({Results})",
             entity.Id, code, entity.ResultJson);
@@ -77,10 +71,7 @@ internal sealed class ProductService : IProductService
     {
         using var repo = _repositories.CreateRepository<FlowMain>();
         entity.IsDeleted = 1;
-        if (await repo.UpdateAsync(entity, token) <= 0)
-        {
-            return OperationResult.Error($"产品({entity.ProductCode})下线失败：主表软删除未成功。");
-        }
+        await repo.UpdateAsync(entity, token);
 
         _logger.LogInformation("生产记录下线，ID({Id})，产品({Code})，IsDeleted(1)", entity.Id, entity.ProductCode);
         return OperationResult.Success();

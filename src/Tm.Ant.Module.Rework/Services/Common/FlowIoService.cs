@@ -72,13 +72,13 @@ internal sealed class FlowIoService : IFlowIoService
             };
             if (result.IsSuccess)
             {
-                _logger.LogInformationToUI("PLC写入完成，设备({DeviceId})，地址({Address})，值({Value})，尝试({Attempt})",
+                _logger.LogInformationToUI("PLC写入完成，地址({Address})，值({Value})，尝试({Attempt})",
                     LogCategory.Comm, DeviceIds.MainPlc, address, JsonConvert.SerializeObject(value), attempt);
                 return result;
             }
         }
 
-        _logger.LogErrorToUI("PLC写入失败，设备({DeviceId})，地址({Address})，值({Value})，原因({Reason})",
+        _logger.LogErrorToUI("PLC写入失败，地址({Address})，值({Value})，原因({Reason})",
             LogCategory.Comm, DeviceIds.MainPlc, address, JsonConvert.SerializeObject(value), result.Message);
         return result;
     }
