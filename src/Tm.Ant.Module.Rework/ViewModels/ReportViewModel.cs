@@ -1,5 +1,4 @@
-﻿using Microsoft.Win32;
-
+﻿using Tm.Ant.CommonViewWpf.Helpers;
 using Tm.Ant.CommonViewWpf.Models;
 using Tm.Ant.Module.Rework.Interfaces.Common;
 
@@ -56,20 +55,8 @@ public partial class ReportViewModel : ObservableObject, INavigationAware
     {
         try
         {
-            var dialog = new SaveFileDialog
-            {
-                Filter = "Excel文件(*.xlsx)|*.xlsx",
-                DefaultExt = ".xlsx",
-                AddExtension = true,
-                FileName = $"产品报表_{DateTime.Now:yyyyMMddHHmmss}.xlsx"
-            };
-            if (dialog.ShowDialog() != true)
-            {
-                return;
-            }
-
-            var count = await _productReportService.ExportAsync(CreateRequest(), dialog.FileName, CancellationToken.None);
-            _dialogService.ShowSuccess($"产品报表导出成功，共{count}条记录。");
+            var rows = await _productReportService.GetExportDataAsync(CreateRequest(), CancellationToken.None);
+            ExcelHelperWithDialog.ListToExcel(rows);
         }
         catch (Exception ex)
         {

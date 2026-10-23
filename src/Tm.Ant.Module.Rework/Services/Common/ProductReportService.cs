@@ -1,13 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-using Tm.Ant.CommonBLL.Helpers;
 using Tm.Ant.Module.Rework.Entities;
 using Tm.Ant.Module.Rework.Interfaces.Common;
 
 namespace Tm.Ant.Module.Rework.Services.Common;
 
 /// <summary>
-/// 产品报表共用筛选与DTO投影，提供分页查询和全部结果导出。
+/// 产品报表共用筛选与DTO投影，提供分页查询和全部导出数据。
 /// </summary>
 internal sealed class ProductReportService : IProductReportService
 {
@@ -25,12 +24,11 @@ internal sealed class ProductReportService : IProductReportService
         return await CreateQuery(repo.GetAll(), request).PagedQueryAsync(request.PageIndex, request.PageSize, token);
     }
 
-    public async Task<int> ExportAsync(ProductReportQueryRequest request, string filePath, CancellationToken token)
+    public async Task<List<ProductReportRowDto>> GetExportDataAsync(ProductReportQueryRequest request,
+        CancellationToken token)
     {
         using var repo = _repositoryFactory.CreateRepository<FlowMain>();
-        var rows = await CreateQuery(repo.GetAll(), request).ToListAsync(token);
-        await Task.Run(() => ExcelHelper.ListToExcel(rows, filePath), token);
-        return rows.Count;
+        return await CreateQuery(repo.GetAll(), request).ToListAsync(token);
     }
 
     private static IQueryable<ProductReportRowDto> CreateQuery(IQueryable<FlowMain> source,

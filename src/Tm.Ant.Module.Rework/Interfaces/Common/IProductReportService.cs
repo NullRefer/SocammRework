@@ -1,7 +1,7 @@
 ﻿namespace Tm.Ant.Module.Rework.Interfaces.Common;
 
 /// <summary>
-/// 查询与导出产品主表报表，包含已软下线记录。
+/// 查询产品主表分页及导出数据，包含已软下线记录。
 /// </summary>
 public interface IProductReportService : ISingleton
 {
@@ -11,7 +11,7 @@ public interface IProductReportService : ISingleton
     Task<PagedResultDto<ProductReportRowDto>> QueryAsync(ProductReportQueryRequest request, CancellationToken token);
 
     /// <summary>
-    /// 导出全部筛选结果至Excel并返回记录数，不受请求页码和页大小限制。
+    /// 返回全部筛选结果供页面导出，不受请求页码和页大小限制。
     /// </summary>
-    Task<int> ExportAsync(ProductReportQueryRequest request, string filePath, CancellationToken token);
+    Task<List<ProductReportRowDto>> GetExportDataAsync(ProductReportQueryRequest request, CancellationToken token);
 }
