@@ -44,9 +44,9 @@ public sealed class VanguardTighteningDevice : ITighteningDevice, IDisposable
         }
 
         if (string.IsNullOrWhiteSpace(value.Ip) || value.Port is < 1 or > 65535
-            || value.ToolNo is < 1 or > 2 || value.TimeoutMs < 100)
+            || value.TimeoutMs < 100)
         {
-            throw new ArgumentException("VLib配置要求有效IP、端口、螺丝批编号1/2及不少于100ms的超时。", nameof(config));
+            throw new ArgumentException("VLib配置要求有效IP、端口及不少于100ms的超时。", nameof(config));
         }
 
         DisconnectAsync().GetAwaiter().GetResult();

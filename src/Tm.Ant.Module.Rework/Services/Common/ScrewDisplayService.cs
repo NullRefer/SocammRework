@@ -1,6 +1,4 @@
-﻿using System.Collections.ObjectModel;
-
-using Tm.Ant.Module.Rework.Interfaces.Common;
+﻿using Tm.Ant.Module.Rework.Interfaces.Common;
 
 namespace Tm.Ant.Module.Rework.Services.Common;
 
@@ -18,9 +16,9 @@ internal sealed class ScrewDisplayService : IScrewDisplayService
 
     public ScrewDisplaySnapshot Latest => Volatile.Read(ref _latest);
 
-    public void Publish(string productCode, DateTime time, IReadOnlyDictionary<int, string> caveResults)
+    public void Publish(string productCode, DateTime time, IReadOnlyDictionary<int, bool> caveResults)
     {
-        var results = new ReadOnlyDictionary<int, string>(new Dictionary<int, string>(caveResults));
+        var results = new ReadOnlyDictionary<int, bool>(new Dictionary<int, bool>(caveResults));
         var snapshot = new ScrewDisplaySnapshot(productCode, time, time, results);
         Interlocked.Exchange(ref _latest, snapshot);
         try

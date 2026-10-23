@@ -32,12 +32,12 @@ public sealed class VanguardTighteningDeviceConfig : DeviceSubTypeConfigBase
     public int Port { get; set; } = 4545;
 
     /// <summary>
-    /// 用于业务关联的螺丝批编号。
+    /// 用于标识拧紧枪的编号，不参与业务关联校验。
     /// </summary>
     [LocalizedCategory(typeof(LangResources), nameof(LangResources.DeviceConfig_Category_Tightening), "拧紧配置")]
     [LocalizedDisplayName(typeof(LangResources), nameof(LangResources.DeviceConfig_ToolNo), "螺丝批编号")]
     [LocalizedDescription(typeof(LangResources), nameof(LangResources.DeviceConfig_Description_ToolNo),
-        "用于关联业务穴位和曲线的螺丝批编号，取值为 1 或 2。")]
+        "用于标识拧紧枪的编号，当前业务不使用此配置进行关联或校验。")]
     public int ToolNo { get; set; } = 1;
 
     /// <summary>

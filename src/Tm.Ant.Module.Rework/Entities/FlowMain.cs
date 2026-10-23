@@ -39,11 +39,14 @@ public sealed class FlowMain : EntityBase
             : JsonConvert.DeserializeObject<List<ResultJsonItem>>(ResultJson) ?? new List<ResultJsonItem>();
     }
 
-    public Dictionary<int, string> GetFinalResult()
+    /// <summary>
+    /// 返回各需拆穴位的最终结果，true为OK，缺失或非OK结果为false。
+    /// </summary>
+    public Dictionary<int, bool> GetFinalResult()
     {
         var required = GetRequiredCaves();
         var received = GetResults();
-        var results = new Dictionary<int, string>();
+        var results = new Dictionary<int, bool>();
         for (var index = 0; index < required.Length; index++)
         {
             if (required[index] != 1)
@@ -52,7 +55,7 @@ public sealed class FlowMain : EntityBase
             }
 
             var result = received.FirstOrDefault(item => item.Cave == index + 1);
-            results[index + 1] = result?.Result == "OK" ? "OK" : "NG";
+            results[index + 1] = result?.Result == "OK";
         }
 
         return results;

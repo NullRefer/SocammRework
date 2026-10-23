@@ -26,7 +26,7 @@ Shell 配置结构与 Lpu4223 一致：
 
 - 工站 FlowName：`LD`、`UNSCREW1`、`UNSCREW2`、`ULD`。
 - 设备 ID：`MainPlc`、`ProductScanner1`；拆螺丝机另有 `Tightening1`、`Tightening2`。
-- Vanguard subtype：`VanguardVLib`，接口为 `ITighteningDevice`，两把工具 ToolNo 分别为 1、2。
+- Vanguard subtype：`VanguardVLib`，接口为 `ITighteningDevice`，ToolNo 仅作拧紧枪标识，业务按订阅入口区分两把枪，不校验回调工具号。
 - 首次配置完成后重新启动 FlowJob 或软件，完成设备检查和订阅。
 - SFC 参数使用 `ReworkSfc` 本机配置，由框架配置管理自动生成管理页面并统一编辑；上料确认地址属性为 `CheckUrl`，过站地址为 `RecordUrl`。已有配置需将旧键 `ReworkUrl` 改为 `CheckUrl`；屏蔽开关使用共享字典 key `Shield`。
 - Shield 仅保留 SFC 开关；关闭 SFC 后，在上料机首页屏蔽区域勾选 1–8 穴位并点击“应用需拆穴位”，后续上料使用已应用的标记。选择仅在当前进程内保留，重启后默认八穴均不选；一个穴位都未选择或未匹配到需拆穴位时，上料反馈 NG 并提示“没有穴位需要拆”，不建档。
@@ -49,6 +49,12 @@ Shell 配置结构与 Lpu4223 一致：
 交互逻辑直接位于 `LDFlow`、`ScrewFlowBase`、`UldFlow`，不额外设置工站 FlowService；基础 IO、产品数据、SFC 服务仍独立。两台拆螺丝机共用 `ScrewFlowBase`。拧紧枪的结果和曲线由独立 `ScrewReceiveJob` 订阅接收，任务仅在 `UNSCREW1` / `UNSCREW2` 运行，启停和开关由框架 Job 管理，与 FlowJob 独立；停止时退订全部回调。设备连接及重连仍由框架设备生命周期管理。
 
 业务页面统一位于 Home：首页下可进入手动过站、产品报表；仅下料机另有“螺丝显示”；上料屏蔽控件仍显示在首页区域。
+
+## 产品报表
+
+Home → 产品报表使用框架时间范围控件及分页表格，默认查询今日08:00至明日08:00，每页50条。可按产品码包含匹配筛选；时间按上料时间筛选，包含开始、不包含结束，报表同时显示在线与已下线记录。
+
+“导出”将点击时的全部筛选结果保存为带中文表头的 `.xlsx`，不受当前页码限制；无匹配记录时保留表头。取消保存对话框不执行导出。查询和导出由独立 ProductReportService 提供，页面使用DTO；离开页面后不显示过期结果或完成提示。
 
 ## 螺丝显示与标定
 

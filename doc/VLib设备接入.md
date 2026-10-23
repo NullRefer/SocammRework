@@ -20,7 +20,7 @@
 IP、Port、ToolNo、TimeoutMs 均在设备管理中编辑，不放在工站 Flow 中。
 
 - 配置中的 IP 必须填写；端口默认 4545，沿用原项目 VLib 协议。
-- 两个设备 ID 分别为 `Tightening1`、`Tightening2`，ToolNo 必须分别为 1、2；业务会检查回调编号与入口配置一致。
+- 两个设备 ID 分别为 `Tightening1`、`Tightening2`；ToolNo 仅作为拧紧枪标识，不限制为1/2，也不校验回调编号。业务按两个订阅入口的编号1/2匹配PLC关联信息。
 - `Configure` 停止旧采集任务和连接，复制配置，保留同一 service 实例及外部事件订阅。
 - `ConnectAsync` 建立一次 TCP/Modbus 连接并启动采集任务。没有永久自动重连线程。
 - `CheckConnectionAsync` 仅报告当前健康状态，不主动重连。
@@ -52,7 +52,7 @@ IP、Port、ToolNo、TimeoutMs 均在设备管理中编辑，不放在工站 Flo
 
 两台拆螺丝机共用 `ScrewFlowBase` 处理产品扫码与 PLC 穴位最终结果。独立 `ScrewReceiveJob` 通过 `IDeviceFactory` 获取两把 `ITighteningDevice`，订阅结果和曲线事件，Job 停止时取消订阅；不管理设备连接或自动重连。Job 仅在 UNSCREW1 / UNSCREW2 运行，由框架扫描并使用独立任务开关，与 FlowJob 启停解耦。
 
-曲线回调由 ScrewReceiveJob 根据PLC两套曲线关联地址确定产品、穴位、螺丝编号和程序号。整个过程不清零、不回写业务 PLC，不更新生产主表。
+结果和曲线订阅固定将 Tightening1 绑定 Curve1、Tightening2 绑定 Curve2；回调透传单个地址组，由 ScrewReceiveJob 仅在本组读取PLC关联信息，确定产品、穴位、螺丝编号和程序号，不跨组查找。整个过程不清零、不回写业务 PLC，不更新生产主表。
 
 有有效关联时保存本地 JSON 文件；没有有效关联时将原始曲线保存为明确标记的 `UNMATCHED` 文件并记录告警，不伪造真实产品或有效穴位。
 

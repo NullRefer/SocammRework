@@ -58,7 +58,7 @@ internal sealed class LDFlow : IFlowBase
         if (!response.Data.Caves.Contains((short)1))
         {
             await _io.WriteAsync(address.Feedback, (short)2, token);
-            return OperationResult.Error($"上料确认失败，产品({scan.Data})：没有穴位需要拆。");
+            return OperationResult.Error($"上料确认失败, 产品({scan.Data}) 没有穴位需要拆, SFC 反馈位置: {response.Data.Locations}");
         }
 
         var saved = await _productService.AddFlowAsync(scan.Data, response.Data.Caves, response.Data.Locations, token);

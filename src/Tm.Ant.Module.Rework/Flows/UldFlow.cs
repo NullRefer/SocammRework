@@ -60,7 +60,8 @@ internal sealed class UldFlow : IFlowBase
         var results = entity.GetFinalResult();
         var resultTime = DateTime.Now;
         _screwDisplayService.Publish(scan.Data, resultTime, results);
-        var isOk = results.Count > 0 && results.Values.All(value => value == "OK");
+
+        var isOk = results.Count > 0 && results.Values.All(value => value);
         var sfcDescription = "质量NG，未上传PASS";
         if (isOk)
         {

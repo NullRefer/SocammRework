@@ -8,7 +8,7 @@
 /// <param name="ProductCode">产品码包含匹配，为空时不筛选。</param>
 /// <param name="StartTime">创建时间起点，包含。</param>
 /// <param name="EndTime">创建时间终点，不包含。</param>
-public sealed record ProductQueryRequest(
+public sealed record ProductReportQueryRequest(
     int PageIndex,
     int PageSize,
     string ProductCode,

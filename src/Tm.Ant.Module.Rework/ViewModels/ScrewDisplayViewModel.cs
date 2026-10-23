@@ -250,7 +250,7 @@ public partial class ScrewDisplayViewModel : ObservableObject, INavigationAware
             for (var screw = 0; screw < 3; screw++)
             {
                 var index = (pair.Key - 1) * 3 + screw;
-                Markers.Add(CreateMarker(index, _saved[index], pair.Value == "OK" ? "OK" : "NG"));
+                Markers.Add(CreateMarker(index, _saved[index], pair.Value ? "OK" : "NG"));
             }
         }
     }

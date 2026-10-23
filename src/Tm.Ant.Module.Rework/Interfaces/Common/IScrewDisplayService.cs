@@ -11,7 +11,7 @@ public interface IScrewDisplayService : ISingleton
     ScrewDisplaySnapshot Latest { get; }
 
     /// <summary>
-    /// 复制产品最终结果，在SFC上传前更新最新快照并通知页面。
+    /// 复制各穴位最终结果（true为OK），在SFC上传前更新最新快照并通知页面。
     /// </summary>
-    void Publish(string productCode, DateTime time, IReadOnlyDictionary<int, string> caveResults);
+    void Publish(string productCode, DateTime time, IReadOnlyDictionary<int, bool> caveResults);
 }

@@ -1,115 +1,98 @@
-﻿using Tm.Ant.CommonViewWpf.Models;
-using Tm.Ant.Module.Rework.Entities;
+﻿using Microsoft.Win32;
+
+using Tm.Ant.CommonViewWpf.Models;
 using Tm.Ant.Module.Rework.Interfaces.Common;
 
 namespace Tm.Ant.Module.Rework.ViewModels;
 
+/// <summary>
+/// 管理产品报表的筛选、分页查询与导出。
+/// </summary>
 public partial class ReportViewModel : ObservableObject, INavigationAware
 {
-    private readonly IProductQueryService _productQueryService;
+    private readonly IProductReportService _productReportService;
     private readonly IDialogService _dialogService;
-    private readonly ILogger _logger;
-    private CancellationTokenSource _session;
-    private CancellationTokenSource _queryCancellation;
-    private Task _loading = Task.CompletedTask;
 
-    public ReportViewModel(IProductQueryService productQueryService, IDialogService dialogService,
-        ILogger<ReportViewModel> logger)
+    public ReportViewModel(IProductReportService productReportService, IDialogService dialogService)
     {
-        _productQueryService = productQueryService;
+        _productReportService = productReportService;
         _dialogService = dialogService;
-        _logger = logger;
-        Pagination.OnPageChanged = _ => _loading = LoadAsync();
+        Pagination.OnPageChanged = _ => QueryPageAsync();
     }
 
     [ObservableProperty]
-    public partial DateTime SelectDate { get; set; } = DateTime.Today;
+    public partial DateTime? StartTime { get; set; } = DateTime.Today.AddHours(8);
 
     [ObservableProperty]
-    public partial DateTime EndDate { get; set; } = DateTime.Today;
+    public partial DateTime? EndTime { get; set; } = DateTime.Today.AddDays(1).AddHours(8);
 
     [ObservableProperty]
     public partial string ProductCode { get; set; } = "";
 
-    public PaginationVo<FlowMain> Pagination { get; } = new() { PageSize = 50 };
+    public PaginationVo<ProductReportRowDto> Pagination { get; } = new() { PageSize = 20 };
 
     [RelayCommand]
     private async Task QueryDataAsync()
     {
         Pagination.PageIndex = 1;
-        _loading = LoadAsync();
-        await _loading;
+        await QueryPageAsync();
     }
 
-    private async Task LoadAsync()
+    private async Task QueryPageAsync()
     {
-        if (_session == null || _session.IsCancellationRequested)
-        {
-            return;
-        }
-
-        if (EndDate.Date < SelectDate.Date)
-        {
-            _dialogService.ShowWarning("结束日期不能早于开始日期。");
-            return;
-        }
-
-        _queryCancellation?.Cancel();
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_session.Token);
-        _queryCancellation = cancellation;
-        var token = cancellation.Token;
         try
         {
-            var request = new ProductQueryRequest(Pagination.PageIndex, Pagination.PageSize, ProductCode,
-                SelectDate.Date, EndDate.Date.AddDays(1));
-            var result = await _productQueryService.QueryAsync(request, token);
-            if (!token.IsCancellationRequested)
-            {
-                Pagination.UpdateFromPagedResultDto(result);
-            }
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
+            Pagination.UpdateFromPagedResultDto(
+                await _productReportService.QueryAsync(CreateRequest(), CancellationToken.None));
         }
         catch (Exception ex)
         {
-            if (token.IsCancellationRequested)
+            _dialogService.ShowError(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExportAsync()
+    {
+        try
+        {
+            var dialog = new SaveFileDialog
+            {
+                Filter = "Excel文件(*.xlsx)|*.xlsx",
+                DefaultExt = ".xlsx",
+                AddExtension = true,
+                FileName = $"产品报表_{DateTime.Now:yyyyMMddHHmmss}.xlsx"
+            };
+            if (dialog.ShowDialog() != true)
             {
                 return;
             }
 
-            _logger.LogError(ex, "产品报表查询失败");
-            _dialogService.ShowError($"产品报表查询失败：{ex.Message}");
+            var count = await _productReportService.ExportAsync(CreateRequest(), dialog.FileName, CancellationToken.None);
+            _dialogService.ShowSuccess($"产品报表导出成功，共{count}条记录。");
         }
-        finally
+        catch (Exception ex)
         {
-            if (ReferenceEquals(_queryCancellation, cancellation))
-            {
-                _queryCancellation = null;
-            }
+            _dialogService.ShowError(ex.Message);
         }
+    }
+
+    private ProductReportQueryRequest CreateRequest()
+    {
+        return new ProductReportQueryRequest(Pagination.PageIndex, Pagination.PageSize,
+            ProductCode, StartTime.Value, EndTime.Value);
     }
 
     public void OnNavigatedTo(object parameter)
     {
-        _session?.Cancel();
-        _session?.Dispose();
-        _session = new CancellationTokenSource();
-        var previous = _loading;
-        _loading = ReloadAfterAsync(previous, _session.Token);
-    }
-
-    private async Task ReloadAfterAsync(Task previous, CancellationToken token)
-    {
-        await previous;
-        if (!token.IsCancellationRequested)
-        {
-            await LoadAsync();
-        }
+        StartTime = DateTime.Today.AddHours(8);
+        EndTime = DateTime.Today.AddDays(1).AddHours(8);
+        ProductCode = "";
+        Pagination.PageSize = 20;
+        QueryDataCommand.Execute(null);
     }
 
     public void OnNavigatedFrom()
     {
-        _session?.Cancel();
     }
 }
