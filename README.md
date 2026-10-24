@@ -1,73 +1,149 @@
-# SocammRework
+﻿# Socamm 重工线
 
-Socamm 重工线，基于 .NET 10 / tm.ant.core 3.2.0。包含上料、两台同协议拆螺丝机、下料、主表报表、本地曲线保存、SFC 配置及手动过站。
+基于 tm.ant 3.2.0 的 Windows WPF 上位机，负责 Socamm 重工线的扫码、SFC 校验、需拆穴位下发、拆除结果保存及下料过站。仓库目录名为 `SocammRework`，解决方案沿用 `Tm.Ant.LgaRework.slnx`。
 
-## 构建
+## 技术与项目结构
 
-```sh
+| 项目 | 目标框架 | 职责 |
+| --- | --- | --- |
+| `src/Tm.Ant.Shell` | `net10.0-windows` | WPF 启动入口、部署配置及框架 Shell |
+| `src/Tm.Ant.Module.Rework` | `net10.0-windows` | 工站 Flow、业务服务、数据实体、页面及后台任务 |
+| `src/Tm.Ant.Communication.Tightening.Vanguard` | `net10.0` | Vanguard VLib 拧紧设备的 Modbus TCP 驱动 |
+
+Shell 引用业务模块，业务模块引用 Vanguard 驱动。业务模块依赖 `Tm.Ant.CommonViewWpf 3.2.0`；驱动依赖 `Tm.Ant.Communication.Tightening.Abstractions 3.2.0` 和私有生成器包 `Tm.Ant.SourceGenerators 3.2.0`。
+
+```text
+src/Tm.Ant.Module.Rework/
+├── Flows/             上料、拆螺丝、下料交互
+├── Models/Pto/        PLC 地址组
+├── Interfaces/Common/ 业务接口
+├── Services/Common/   IO、SFC、产品数据、报表、显示快照
+├── Entities/          flow 主表映射与逐穴质量判定
+├── Jobs/              螺丝批结果和曲线接收任务
+├── Provider/          本地曲线文件保存
+├── Views/             WPF 页面
+├── ViewModels/        页面状态与命令
+├── Behaviors/         螺丝显示标定交互
+└── RegisterLayouts/   首页布局注册
+doc/                   业务说明、通讯协议、SQL 与历史验证记录
+```
+
+## 构建与运行
+
+开发需要 .NET 10 SDK；运行与界面验收需要 Windows。项目已启用 `EnableWindowsTargeting`，可在其他系统尝试交叉编译，但不能据此认定 WPF 界面可运行。仓库未提供 `global.json`。
+
+`NuGet.Config` 清除了默认源，配置了：
+
+- `TM-Local`：相对仓库根目录的 `../Lpu4223/nupkgs`。
+- `nuget.org`：公共依赖源。
+
+还原前确保可取得项目指定的 3.2.0 私有包。仓库工作目录中的 `nupkg/` 并未配置为默认源，且 `*.nupkg` 被 Git 忽略；不能假设克隆仓库后就会带齐私有依赖。若使用其他私有包位置，应按本机环境配置源。
+
+在仓库根目录执行：
+
+```powershell
 dotnet restore Tm.Ant.LgaRework.slnx
 dotnet build Tm.Ant.LgaRework.slnx --no-restore
+```
+
+在 Windows 完成本机配置后运行：
+
+```powershell
+dotnet run --project src/Tm.Ant.Shell/Tm.Ant.Shell.csproj
+```
+
+发布 Windows x64 的框架依赖版本：
+
+```powershell
 dotnet publish src/Tm.Ant.Shell/Tm.Ant.Shell.csproj -c Release -r win-x64 --self-contained false
 ```
 
-`NuGet.Config` 使用相邻 `../Lpu4223/nupkgs` 作为 Tm.Ant 3.2.0 本地包源，并保留 nuget.org。Vanguard 的 Lang*.txt 资源由 Tm.Ant.SourceGenerators 3.2.0 在构建时生成，包源也需提供该包。其他环境应替换为可访问的同版本包源。
+目标机器需要匹配的 .NET 10 Windows Desktop Runtime。Shell 启动时将工作目录固定为 `AppContext.BaseDirectory`，相对配置和数据路径以程序部署目录为基准。
 
-没有新增单元测试项目。跨平台支持构建，实际程序在 Windows 运行，部署需要 .NET 10 Desktop Runtime / ASP.NET Core Runtime。
+## 首次部署配置
 
-## 配置
+1. 核对部署目录下的 `Config/appsettings.json`，按现场环境设置运行参数和数据库连接。当前源码配置的 `RunMode` 为 `Online`；配置中的连接信息须按部署环境核对。
+2. 在框架本机配置中设置 `LocalConfigOption.FlowName`，从下表选择本机工站。工站选择不是 `ModuleConfig.Modules` 中的菜单开关。
+3. 在设备管理中设置设备 ID、类型及连接参数。PLC、扫码枪的连接信息不写在 Flow 中。
+4. 通过框架配置管理设置 SFC 参数及 `Shield` 开关。设备首次配置完成后重新启动相关任务或软件。
+5. 按选用的数据库核对表结构，再进行隔离验证与设备联调。
 
-Shell 配置结构与 Lpu4223 一致：
+| 机台 | FlowName | 实现 | 设备 ID |
+| --- | --- | --- | --- |
+| 上料机 | `LD` | `LDFlow` | `MainPlc`、`ProductScanner1` |
+| 拆螺丝机 1 | `UNSCREW1` | `UnscrewFlow1` | 同上，曲线接收另需 `Tightening1`、`Tightening2` |
+| 拆螺丝机 2 | `UNSCREW2` | `UnscrewFlow2` | 同上，曲线接收另需 `Tightening1`、`Tightening2` |
+| 下料机 | `ULD` | `UldFlow` | `MainPlc`、`ProductScanner1` |
 
-- `Config/appsettings.json`：版本、运行模式、MockHost、FileServerHost、数据库连接串。MySQL 连接串按部署环境填写。
-- `Config/littleAnt.db`：保留原本地数据库，按 Lpu4223 的方式复制，不另设种子目录或初始化复制目标。
-- `Config/Unchanged/appsettings.ModuleConfig.json`、`appsettings.nlog.json`：固定 UI 与日志配置。
+VLib 设备子类型为 `VanguardVLib`，配置类型为 `VanguardTighteningDeviceConfig`；端口默认 `4545`，超时默认 `1000 ms`。`ToolNo` 是设备标识，业务曲线关联使用两个订阅入口对应的编号 1/2。详细生命周期见 [VLib 设备接入](doc/VLib设备接入.md)。
 
-设备、机台、本机参数、任务开关与 SFC 业务参数通过框架配置管理生成和维护，不在 Shell 预置对应 JSON，也不在 appsettings 中展开默认值。发布沿用标准 PreserveNewest 复制规则；部署更新时保留现场配置和数据库。
+配置文件与持久化配置分工如下：
 
-- 工站 FlowName：`LD`、`UNSCREW1`、`UNSCREW2`、`ULD`。
-- 设备 ID：`MainPlc`、`ProductScanner1`；拆螺丝机另有 `Tightening1`、`Tightening2`。
-- Vanguard subtype：`VanguardVLib`，接口为 `ITighteningDevice`，ToolNo 仅作拧紧枪标识，业务按订阅入口区分两把枪，不校验回调工具号。
-- 首次配置完成后重新启动 FlowJob 或软件，完成设备检查和订阅。
-- SFC 参数使用 `ReworkSfc` 本机配置，由框架配置管理自动生成管理页面并统一编辑；上料确认地址属性为 `CheckUrl`，过站地址为 `RecordUrl`。已有配置需将旧键 `ReworkUrl` 改为 `CheckUrl`；屏蔽开关使用共享字典 key `Shield`。
-- Shield 仅保留 SFC 开关；关闭 SFC 后，在上料机首页屏蔽区域勾选 1–8 穴位并点击“应用需拆穴位”，后续上料使用已应用的标记。选择仅在当前进程内保留，重启后默认八穴均不选；一个穴位都未选择或未匹配到需拆穴位时，上料反馈 NG 并提示“没有穴位需要拆”，不建档。
+| 位置或配置键 | 用途 |
+| --- | --- |
+| `Config/appsettings.json` | 运行模式、MockHost、MySQL/SQLite 连接字符串等 |
+| `Config/Unchanged/appsettings.ModuleConfig.json` | 框架菜单模块开关 |
+| `Config/Unchanged/appsettings.nlog.json` | 日志配置 |
+| `Config/littleAnt.db` | 随 Shell 复制的 SQLite 文件 |
+| `SfcConfigOption` | `CheckUrl`、`RecordUrl`、`Group`、`Emp`、`MachineCode`，由 `IConfigService` 管理 |
+| `Shield` | `Sfc` 开关；`true` 表示启用 SFC |
+| `ScrewDisplayCalibration` | 下料螺丝显示的 24 个归一化标定点，由 `IConfigService` 管理 |
 
-## 数据库脚本
+以上四个 Shell 配置文件使用 `CopyToOutputDirectory=PreserveNewest`。部署更新前应备份并核对目标配置和数据库，不能将此复制策略理解为始终保留现场文件。
 
-框架初始化与业务初始化分别执行：
+## 业务流程与关键约定
 
-| 数据库 | 框架表 | 业务 flow 表 |
-|---|---|---|
-| MySQL | `doc/mysql_common.sql` | `doc/1数据库创建初始化脚本.sql` |
-| SQLite | `doc/sql/sqlite_common.sql` | `doc/sql/sqlite_flow.sql` |
+整线流程：上料扫码 → SFC 返回需拆位置 → 创建在线记录 → 拆螺丝扫码并下发八穴标记 → PLC 上传逐穴最终结果 → 下料逐穴判定 → 必要时 SFC PASS → 软下线。
 
-脚本不包含 DROP TABLE 或生产数据，不自动连接数据库。现有本地库保持原文件，未自动更新结构；使用前按 core 3.2.0 核对现有列。初始化脚本不能替代存量库迁移，部署前备份。
+- 上料确认使用 SFC 返回的 `GROUP`、`DEKIT_LOCATION`，不使用该接口的 `rc` 判定。站点组按逗号拆分后至少匹配一项；同号 L/J 位置必须成对出现才标记需拆。八穴全 0 时拒绝建档。
+- 穴位 1～8 依次对应位置号 `172、170、168、212、174、176、178、180`，例如 `L172,J172` 对应穴位 1。
+- `UnScrewCaves` 是按穴位排列的八个 0/1 标记。拆螺丝机下发完整需拆数组，不按已收到结果过滤。
+- 质量依据 PLC 上传的穴位最终结果。要求穴位全部有 OK 结果才总 OK；缺失、NG 或零需拆集合均为总 NG，额外穴位不替代要求穴位。
+- 只有总 OK 才调用 SFC PASS，过站响应按 `rc=0` 判断。SFC 失败保留在线记录；质量 NG 不上传 PASS，但处理完成后可以软下线。
+- 下料 `D201` 表示处理成功 1 / 失败 2，不能作为产品质量位；质量 NG 正常下线仍反馈 1。
 
-仅使用 flow 主表，软删表示下线，报表包含软删记录。旧 `ReworkOption.Sfc` 参数迁入框架管理的 `ReworkSfc`；旧设备参数迁入设备管理。
+### PLC 交互
 
-曲线仅保存本地文件：通过 `IConfiguration.GetDataDirectory()` 获取数据根目录，保存到 `screw/yyyy-MM/`（例如 `screw/2026-10/`）。文件名包含完整日期时间，内容沿用原 JSON 字段；不提供曲线展示、缓存或历史查询。
+| 交互 | 关键地址 |
+| --- | --- |
+| 上料扫码 | 触发 `D100`，反馈 `D200`，产品码 `D201` |
+| 拆螺丝扫码 | 触发 `D100`，反馈 `D200`，产品码 `D201`，更新标记 `D232`，八穴数组 `D233~D240` |
+| 工位 2 最终结果 | 产品码 `D135`，穴位 `D166`，结果/触发 `D168`（1=OK、2=NG） |
+| 下料扫码 | 触发 `D101`，反馈 `D201`，产品码 `D232` |
 
-交互逻辑直接位于 `LDFlow`、`ScrewFlowBase`、`UldFlow`，不额外设置工站 FlowService；基础 IO、产品数据、SFC 服务仍独立。两台拆螺丝机共用 `ScrewFlowBase`。拧紧枪的结果和曲线由独立 `ScrewReceiveJob` 订阅接收，任务仅在 `UNSCREW1` / `UNSCREW2` 运行，启停和开关由框架 Job 管理，与 FlowJob 独立；停止时退订全部回调。设备连接及重连仍由框架设备生命周期管理。
+扫码先处理业务和写反馈，再由框架 Runtime 清零触发。最终结果交互处理完成后，Runtime 无论业务成功或失败均清零 `D168`；清零仅表示交互已处理。曲线关联地址只读，不回写或清零。完整地址以 `Models/Pto/` 为准。
 
-业务页面统一位于 Home：首页下可进入手动过站、产品报表；仅下料机另有“螺丝显示”；上料屏蔽控件仍显示在首页区域。
+IO 统一清理扫码及 PLC 字符串两端控制字符、空白和空字符；PLC 产品码读取显式传入长度 30，该长度不限制扫码码长。常规 PLC 写入在 IO 层最多尝试三次。
 
-## 产品报表
+### 数据与曲线
 
-Home → 产品报表使用框架时间范围控件及分页表格，默认查询今日08:00至明日08:00，每页20条。可按产品码包含匹配筛选；时间按上料时间筛选，包含开始、不包含结束，报表同时显示在线与已下线记录。
+业务只使用 `flow` 主表。在线查询按产品码和 `IsDeleted=0` 取最新记录；下线将本次记录 `IsDeleted` 置 1，数据继续保留在主表，报表包含已下线记录。
 
-“导出”将点击时的全部筛选结果保存为带中文表头的 `.xlsx`，不受当前页码限制；无匹配记录时保留表头。保存对话框及Excel写入使用框架 ExcelHelperWithDialog，取消时不生成文件。独立 ProductReportService 仅提供分页及全部导出DTO数据，不处理文件路径。导航进入恢复默认条件并查询第1页，查询与导出命令独立执行，异常统一弹窗提示。
+重复上料会新增记录，不自动清理同码旧在线记录；重复穴位结果追加到 `ResultJson`，最终判定取该穴位首次保存的结果。当前不单独持久化产品总 OK/NG 字段。
 
-## 螺丝显示与标定
+`ScrewReceiveJob` 仅在 `UNSCREW1/UNSCREW2` 运行，订阅两把螺丝批的结果和曲线。曲线保存到 `IConfiguration.GetDataDirectory()` 下的 `screw/yyyy-MM/*.txt`，文件内容为 JSON；无法关联的曲线以 `UNMATCHED` 标记保存。曲线不写业务主表，不参与最终质量判定，当前没有曲线展示或历史查询页面。
 
-下料机 Home → 螺丝显示，以 `Images/PCB.png` 显示当前产品结果。页面最上方显示事件触发时间，下方显示 PCB 码和下线时间；两个时间均取 SFC 上传前取得最终结果的时刻，不表示软下线已成功。每穴对应三颗螺丝，绿色 OK、红色 NG，未参与穴位不显示标记。离开后重新进入会恢复当前进程内最新一件结果，重启后等待新事件；SFC 上传失败不会撤销展示。
+数据库初始化参考：
 
-首次使用点击“开始标定”，按穴位1的3颗、穴位2的3颗……穴位8的3颗，顺序点击24个位置。第24点后自动保存，可取消当前标定；保存失败可点击“重试保存”。坐标通过 `IConfigService` 保存于本机 `ScrewDisplayCalibration` 配置，使用归一化坐标适应页面缩放。不满24点不保存，离开页面丢弃未保存草稿。未标定时仍显示图片和结果信息，但不猜测标记位置。原 `RectangleData.json` 保留，不用作24点标定。
+- SQLite 公共表：`doc/sql/sqlite_common.sql`；业务表：`doc/sql/sqlite_flow.sql`。
+- MySQL 公共表：`doc/mysql_common.sql`；业务表：`doc/1数据库创建初始化脚本.sql`。
 
-## 文档与模型
+这些脚本用于新库初始化，不能替代存量数据库迁移。当前随仓库提供的 `littleAnt.db` 不含 `flow` 表；使用 SQLite 业务存储时需先核对并补齐业务结构，不应假设内置数据库已完成业务初始化。
 
-- `doc/业务流程说明.md`：工站业务、PLC 交互与数据语义。
-- `doc/Socamm重工线-PLC通讯协议.xlsx`：业务 PLC 协议。
-- `doc/VLib设备接入.md`：设备生命周期、寄存器与参数。
-- `doc/重构验证记录.md`：验证范围和环境限制。
-- `Models/SFC/Check.cs`：上料确认请求与响应（CheckRequest / CheckResponse）；`StationRecord.cs`：普通过站请求与响应，均为独立模型，不使用继承。
+## 页面与测试模式
 
-core 3.2.0 的传递依赖存在 NuGet 审计告警（ImageSharp、SQLitePCLRaw），本次保持指定版本。
+- 首页提供手动过站和产品报表；`ULD` 额外注册螺丝显示，`LD` 注册 SFC 屏蔽区域。
+- 产品报表按产品码包含匹配、上料时间半开区间 `[开始, 结束)` 筛选，ID 倒序，每页 20 条；默认今日 08:00 至次日 08:00，Excel 导出全部筛选结果。
+- 下料取得最终结果后即发布最新显示快照，早于 SFC 上传和软下线；显示时间不代表过站成功时间。螺丝显示需按穴位顺序完成 24 点标定，每穴结果映射到三颗螺丝，未标定时不推测位置。
+- 关闭 SFC 后，上料使用首页已应用的测试穴位，默认全 0，重启后重置；至少选择一个穴位才能上料。扫码设备返回失败且 SFC 关闭时生成 `Fake-...` 产品码，过站模拟成功。
+
+## 验证与进一步阅读
+
+仓库没有随附自动化测试项目。修改后的常规检查为构建、`git diff --check` 及必要的隔离验证；Windows 页面、真实 PLC 时序、扫码枪、螺丝批和 SFC 需要现场验收。
+
+- [业务流程说明](doc/业务流程说明.md)
+- [VLib 设备接入](doc/VLib设备接入.md)
+- [历史重构验证记录](doc/重构验证记录.md)
+- 开发协作约定见根目录 `AGENTS.md`。
+
+历史验证记录包含后续已替换的方案及旧 `.sln` 命令；当前行为以源码为准，当前构建入口为 `.slnx`。
